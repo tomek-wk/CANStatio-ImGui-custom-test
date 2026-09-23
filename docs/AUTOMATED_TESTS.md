@@ -17,9 +17,8 @@ Ten dokument jest nadrzędnym źródłem prawdy w zakresie automatycznych testó
 - nie tworzymy osobnej biblioteki `core` tylko dla testów;
 - nie przenosimy FlaUI / UIA3 / xUnit ze starego wxWidgets;
 - nie dodajemy nowej zależności, jeśli istniejące narzędzia rozwiązują problem;
-- najpierw testujemy istniejący produkcyjny interfejs;
 - małą czystą funkcję lub model wydzielamy tylko wtedy, gdy zapobiega to duplikowaniu algorytmu albo kruchemu testowi GUI i ma sens produkcyjny;
-- matematyka data/screen, hit-test i pan/zoom powinna być testowana funkcyjnie tam, gdzie można ją oddzielić od samego renderowania.
+- matematyka data/screen, hit-test i pan/zoom powinna być testowana funkcyjnie tam, gdzie można ją oddzielić od renderowania.
 
 ## Narzędzia
 
@@ -35,7 +34,13 @@ GCC/G++ 16.2.0
 Ninja 1.13.2
 ```
 
-GoogleTest jest znajdowany przez `find_package(GTest REQUIRED)`; repo go nie pobiera.
+Target:
+
+```text
+canstatio_functional_tests
+```
+
+GoogleTest jest znajdowany przez `find_package(GTest REQUIRED)`.
 
 ### GUI
 
@@ -46,7 +51,17 @@ Bazowe wersje:
 - Dear ImGui `v1.92.9b`;
 - Dear ImGui Test Engine commit `508a8fc8dacac2f346d353fed31b9bc90ed29adc`.
 
-Tryby i nazwy executable mogą ulec zmianie podczas etapu C1. Dokument nie utrwala nazw skopiowanego targetu jako części nowej architektury.
+Aktualny target GUI od C1:
+
+```text
+canstatio_imgui_custom_test
+```
+
+Uruchomienie suite:
+
+```text
+build/canstatio_imgui_custom_test.exe --run-tests
+```
 
 Nie dodajemy OS-level GUI automation bez konkretnej luki, której Dear ImGui Test Engine nie potrafi wiarygodnie sprawdzić.
 
@@ -79,9 +94,7 @@ Workflow:
 
 Jest celowo `workflow_dispatch` only — bez triggerów `push` i `pull_request`.
 
-Standardowy GitHub-hosted Windows runner nie jest podstawowym środowiskiem GUI. Nie dokładamy alternatywnych backendów renderingu tylko po to, aby wymusić testy GUI na runnerze.
-
-Linux GitHub Actions nie jest częścią bieżącej strategii testowej.
+Standardowy GitHub-hosted Windows runner nie jest podstawowym środowiskiem GUI. Linux GitHub Actions nie jest częścią bieżącej strategii testowej.
 
 ## Historyczny baseline przed migracją
 
@@ -93,42 +106,51 @@ Test Agent Windows:    19/19 GUI PASS
 GitHub Windows:        21/21 functional PASS — historycznie zweryfikowany fallback
 ```
 
-Te wyniki nie są wynikiem własnego renderera. Służą wyłącznie jako punkt odniesienia dla zachowań, które warto zachować.
+Te wyniki nie są wynikiem własnego renderera.
 
-Po migracji test dotkniętego obszaru liczy się jako zweryfikowany dopiero po ponownym uruchomieniu przeciwko custom chart.
+## C1 — aktualny stan testów
 
-## Co można zachować z istniejących testów
+Implementacja C1 zawiera nowy minimalny GUI suite:
 
-Najbardziej prawdopodobne do bezpośredniego zachowania lub małej korekty:
+```text
+custom_chart/startup_windows
+custom_chart/window_toggles
+custom_chart/custom_legend_active_series
+custom_chart/active_highlight_mode
+custom_chart/plot_geometry_and_mouse_time
+custom_chart/fit_x
+```
+
+Stare GUI testy zależne od poprzedniej architektury zostały usunięte zamiast sztucznie utrzymywać ich założenia.
+
+C1 nie został jeszcze uruchomiony na target Windows. Powód jest operacyjny, nie testowy: ostatni dostępny heartbeat Test Agenta był nieaktualny, a jego dokumentowana lokalna konfiguracja nie zawierała jeszcze `CANStatio-ImGui-custom-test` jako zarejestrowanego projektu.
+
+Nie raportujemy więc żadnego PASS/FAIL dla C1.
+
+## Functional — elementy zachowane z baseline
+
+Najbardziej prawdopodobne do bezpośredniego zachowania:
 
 - `Dataset::endTimeSeconds()`;
 - `Series::fitViewToData()`;
 - `ValuesModel` — exact sample, interpolacja, hidden/no-hover/outside dataset i edge-case'y;
 - `CursorModel` — start hidden, niezależne A/B, clamp i hide.
 
-GUI testy zależne od starego plot widgetu mogą wymagać przepisania, nawet jeśli ich semantyka użytkowa pozostaje taka sama.
+Ich wcześniejsze wyniki pozostają historyczne do czasu ponownego uruchomienia po C1.
 
 ## Plan testów functional
 
 ### F0 — środowisko + runner
 
-Status: istniejąca infrastruktura dostępna, do ponownego potwierdzenia po zmianie targetów w C1.
+Do ponownego potwierdzenia po C1.
 
 ### F1 — Dataset / Series
 
-Status: baseline istnieje.
-
-Zakres:
-
-- `endTimeSeconds()`;
-- Fit Y margin;
-- constant-value edge cases.
+Baseline istnieje; uruchomić ponownie bez zmiany semantyki.
 
 ### F2 — transformacja X
 
-Do dodania razem z własnym rendererem.
-
-Zakres:
+Do dodania w C2:
 
 - time -> screen X;
 - screen X -> time;
@@ -138,95 +160,49 @@ Zakres:
 
 ### F3 — transformacja Y
 
-Do dodania.
-
-Zakres:
+Do dodania w C2/C3:
 
 - raw value -> screen Y dla niezależnego `viewMin/viewMax`;
 - screen Y -> raw value;
 - różne skale serii;
-- constant/range edge cases;
+- edge cases zakresu;
 - wartości poza viewportem.
 
 ### F4 — X pan / zoom / Fit X math
 
-Do dodania.
-
-Zakres:
-
-- zachowanie span przy pan;
-- zmiana span przy wheel zoom;
-- anchoring zgodny z przyjętą semantyką;
-- Fit X.
+Do dodania w C2.
 
 ### F5 — Y pan / zoom / Fit Y math
 
-Do dodania lub rozszerzenia.
-
-Zakres:
-
-- pan aktywnej serii bez zmiany X;
-- zoom aktywnej serii bez zmiany X;
-- minimalny bezpieczny span;
-- niezależność Y pomiędzy seriami.
+Do dodania lub rozszerzenia w C3.
 
 ### F6 — ticki i formatowanie czasu/Y
 
-Do dodania.
-
-Zakres:
-
-- wybór czytelnego kroku;
-- sekundy/minuty/godziny;
-- format milisekund;
-- stabilne wyniki przy nietypowych zakresach.
+Do dodania w C2/C3.
 
 ### F7 — RMB hit-test math
 
-Do dodania lub przeniesienia.
-
-Zakres:
-
-- point-to-segment w screen-space;
-- najbliższa seria wygrywa;
-- hidden series pomijana;
-- empty-space clears active;
-- duży zoom-out i wiele próbek w jednym pikselu.
+Do dodania w C3.
 
 ### F8 — Values
 
-Status: model baseline istnieje, do ponownego potwierdzenia po podpięciu pod własny mouse-time transform.
+Model baseline istnieje; ponowna walidacja po podpięciu pod pełny custom X navigation w C4.
 
 ### F9 — kursory A/B
 
-Status: state model baseline istnieje.
-
-Do dodania/przepisania:
-
-- screen hit-test kursora;
-- drag -> time;
-- clamp;
-- kolizje wejścia.
+State model baseline istnieje. Geometria i interakcje do zbudowania w C5.
 
 ### F10 — markery i input priority
 
-Do dodania razem z implementacją.
-
-Zakres:
-
-- numeracja;
-- add/remove/drag;
-- Alt-click threshold;
-- Alt-drag Y pan;
-- konflikty cursor/marker.
+Do dodania razem z C6.
 
 ### F11 — performance helpers
 
-Dopiero po implementacji pełnych presetów, jeśli wydzielimy testowalne elementy związane z widocznym zakresem indeksów lub przygotowaniem geometrii.
+Dopiero po pełnych presetach, jeśli pojawią się testowalne elementy związane z widocznym zakresem indeksów lub przygotowaniem geometrii.
 
 ## Plan GUI integration
 
-Minimalny zestaw ma docelowo pokrywać:
+Docelowy zestaw ma pokrywać:
 
 - startup i okna pomocnicze;
 - stabilny plot area;
@@ -247,15 +223,14 @@ Testy GUI powinny sprawdzać semantykę i state, a nie utrwalać niepotrzebnie w
 
 ### C1
 
-Wymagane:
+Do wykonania, gdy repozytorium będzie dostępne w Test Agencie:
 
 - configure/build;
-- minimalny GUI smoke;
-- potwierdzenie, że aplikacja działa bez starego backendu wykresu.
+- pełny retained functional suite;
+- 6-testowy C1 GUI smoke suite;
+- manualny start aplikacji i kontrola, czy raw series są widoczne.
 
 ### C2
-
-Wymagane:
 
 - functional transforms X;
 - tick/time formatting;
@@ -264,22 +239,16 @@ Wymagane:
 
 ### C3
 
-Wymagane:
-
 - functional Y math i hit-test;
 - GUI active/visibility/Fit Y/Y navigation/RMB;
 - manual Halo/Outline i semantic Y.
 
 ### C4
 
-Wymagane:
-
 - functional Values;
 - GUI Values/crosshair.
 
 ### C5
-
-Wymagane:
 
 - functional cursor state + geometry helpers;
 - GUI set/drag/remove + modifier conflicts;
@@ -287,15 +256,11 @@ Wymagane:
 
 ### C6
 
-Wymagane:
-
 - functional marker state/input threshold;
 - pełny GUI input-priority suite;
 - manual ergonomia markerów.
 
 ### C7
-
-Wymagane:
 
 - full regression;
 - manual performance run na Reference i Stress Raw;

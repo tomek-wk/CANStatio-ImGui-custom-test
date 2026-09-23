@@ -117,12 +117,16 @@ void RegisterGuiTests(ImGuiTestEngine* engine, const GuiTestAccess& access) {
         IM_CHECK(gAccess.activeSeriesIndex != nullptr);
         IM_CHECK(gAccess.xMin != nullptr);
         IM_CHECK(gAccess.xMax != nullptr);
+        IM_CHECK(gAccess.showCustomLegend != nullptr);
+        IM_CHECK(gAccess.showValues != nullptr);
         IM_CHECK(gAccess.chartMouseState != nullptr);
         IM_CHECK(gAccess.chartLayoutState != nullptr);
 
         *gAccess.activeSeriesIndex = std::numeric_limits<std::size_t>::max();
         *gAccess.xMin = 0.0;
         *gAccess.xMax = gAccess.dataset->endTimeSeconds();
+        *gAccess.showCustomLegend = false;
+        *gAccess.showValues = false;
         ctx->Yield(2);
 
         const ChartLayoutState noActive = *gAccess.chartLayoutState;
@@ -148,7 +152,9 @@ void RegisterGuiTests(ImGuiTestEngine* engine, const GuiTestAccess& access) {
         IM_CHECK(samePlotGeometry(noActive, *gAccess.chartLayoutState));
 
         *gAccess.activeSeriesIndex = std::numeric_limits<std::size_t>::max();
-        ctx->Yield();
+        *gAccess.showCustomLegend = true;
+        *gAccess.showValues = true;
+        ctx->Yield(2);
     };
 
     test = IM_REGISTER_TEST(engine, "custom_chart", "fit_x");

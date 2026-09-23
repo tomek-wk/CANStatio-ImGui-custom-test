@@ -12,18 +12,65 @@ Repozytorium zostało utworzone jako niezależny wariant eksperymentalny dla Dea
 
 Początkowo skopiowano do niego działającą bazę wcześniejszego prototypu, aby zachować sprawdzone modele danych, zachowania użytkowe i testy jako materiał referencyjny.
 
-Na tym etapie skopiowany renderer i jego rozwiązania techniczne są traktowane jako **legacy baseline**, a nie jako architektura docelowa.
+Skopiowany renderer i jego rozwiązania techniczne są traktowane jako legacy baseline, a nie jako architektura docelowa.
 
-## Reset dokumentacji — zakończony
+## C0 — dokumentacja i wymagania
 
-Dokumentacja została przepisana pod wariant własnego wykresu:
+**Status: zakończony.**
 
-- `README.md` opisuje nowy cel repozytorium;
-- `AGENTS.md` definiuje pracę wyłącznie w tym repozytorium oraz nową odpowiedzialność renderera;
-- `docs/PROJECT_SPEC.md` opisuje funkcjonalność bez zależności od zewnętrznego plot widgetu;
-- `docs/DECISIONS.md` został zresetowany do decyzji właściwych dla custom chart;
-- `docs/AUTOMATED_TESTS.md` opisuje plan ponownej walidacji po migracji;
-- ten plik rozdziela legacy baseline od faktycznie przeniesionej funkcjonalności.
+- zebrano aktualną i planowaną funkcjonalność;
+- usunięto z dokumentacji założenia zależne od poprzedniego renderera;
+- zdefiniowano app-owned plot, transforms, input i overlays;
+- zresetowano rejestr decyzji pod wariant custom chart;
+- zapisano nadrzędną granicę repozytorium.
+
+## C1 — minimalny własny plot i build
+
+**Status implementacji: zakończony.**
+
+**Status weryfikacji na target Windows: oczekuje.**
+
+Zaimplementowano:
+
+- usunięcie starej biblioteki wykresowej z `CMakeLists.txt`;
+- zmianę projektu na `CANStatioImGuiCustomTest`;
+- zmianę executable na `canstatio_imgui_custom_test`;
+- usunięcie tworzenia i niszczenia starego kontekstu wykresowego;
+- własny `ChartHost` i app-owned plot rectangle;
+- bezpośrednie mapowanie czasu na X w pikselach;
+- bezpośrednie mapowanie wartości każdej serii z jej `viewMin/viewMax` na Y w pikselach;
+- clipping renderowania do plot area;
+- rysowanie widocznych serii przez `ImDrawList::AddPolyline`;
+- active series rysowaną na końcu;
+- Halo/Outline korzystające z tej samej geometrii screen-space co cienka linia danych;
+- mouse time liczony z własnego plot rectangle;
+- crosshair oparty o własną geometrię;
+- Values nadal korzystające z `ChartMouseState`, już zasilanego przez custom plot;
+- usunięcie renderer-specific `CursorOverlay`;
+- usunięcie starych GUI testów navigation/selection/Values/cursors zależnych od poprzedniej architektury;
+- nowy minimalny GUI suite C1 obejmujący startup, okna, Custom Legend, highlight mode, plot geometry/mouse time i Fit X;
+- aktualizację `run.bat` i `update.bat` do nowej nazwy executable.
+
+Nie zostały jeszcze przeniesione:
+
+- oś czasu X i jej ticki;
+- neutralny grid;
+- pan/zoom X;
+- semantic Y i kolorowy grid;
+- pan/zoom Y;
+- RMB selection;
+- własny cursor overlay A/B;
+- markery;
+- pełny input priority.
+
+### Weryfikacja C1
+
+Próba użycia Test Agenta została zatrzymana przed kolejkovaniem komend:
+
+- ostatni dostępny heartbeat agenta był nieaktualny względem czasu pracy;
+- dokumentowana lokalna konfiguracja agenta zawierała tylko poprzedni projekt, nie `CANStatio-ImGui-custom-test`.
+
+Dlatego nie deklarujemy configure/build ani testów jako wykonanych.
 
 ## Docelowa architektura
 
@@ -45,11 +92,11 @@ Własna warstwa wykresu ma przejąć:
 - cursory A/B;
 - markery.
 
-Nie zakładamy wspólnej sztucznej przestrzeni Y. Każda seria ma być mapowana bezpośrednio ze swojego `viewMin..viewMax` do pikseli plot area.
+Nie używamy wspólnej sztucznej przestrzeni Y. Każda seria jest mapowana bezpośrednio ze swojego `viewMin..viewMax` do pikseli plot area.
 
 ## Funkcjonalność do zachowania
 
-Skopiowany baseline dostarcza zachowania, które mają zostać odtworzone w custom rendererze, jeśli nie zostaną później jawnie zmienione:
+Z baseline pozostają wymaganiami użytkowymi, jeśli później nie zostaną jawnie zmienione:
 
 - regularny wspólny X;
 - niezależny `viewMin/viewMax` każdej serii;
@@ -66,9 +113,7 @@ Skopiowany baseline dostarcza zachowania, które mają zostać odtworzone w cust
 - crosshair;
 - Halo / Outline;
 - kursory A/B;
-- docelowe markery i input priority.
-
-Nie zachowujemy automatycznie rozwiązań technicznych, które były potrzebne tylko przez poprzedni renderer.
+- markery i input priority.
 
 ## Historyczna weryfikacja baseline
 
@@ -78,55 +123,30 @@ Skopiowana baza miała wcześniej potwierdzony wynik:
 Test Agent Windows: 21/21 functional PASS + 19/19 GUI PASS
 ```
 
-Ten wynik jest punktem odniesienia dla zachowania sprzed migracji. Nie jest wynikiem custom renderera.
+Ten wynik nie jest wynikiem custom renderera.
 
-Po rozpoczęciu migracji każdy dotknięty obszar musi zostać ponownie zweryfikowany.
+## Co zachowano bez przepisywania od zera
 
-## Co można zachować bez przepisywania od zera
-
-Najbardziej prawdopodobne elementy do ponownego użycia:
+Na etapie C1 pozostawiono:
 
 - `Dataset` i `Series`;
 - `DataGenerator`;
 - `ValuesModel`;
-- `CursorModel` jako semantyczny state;
+- `CursorModel` jako semantyczny state na przyszły etap C5;
 - deterministic colors;
-- część formatowania czasu i ticków;
-- część matematyki RMB hit-test po odseparowaniu od starego systemu współrzędnych;
-- część testów funkcyjnych modeli.
+- `CustomLegend`;
+- `ValuesWindow`;
+- funkcjonalne testy modeli.
 
-Każdy z tych elementów należy ocenić przed pozostawieniem. Sam fakt istnienia w baseline nie wystarcza.
-
-## Plan migracji
-
-### C0 — dokumentacja i wymagania
-
-**Status: zakończony.**
-
-- zebrano aktualną i planowaną funkcjonalność;
-- usunięto z dokumentacji założenia zależne od poprzedniego renderera;
-- zdefiniowano app-owned plot, transforms, input i overlays;
-- ustalono nowe źródła prawdy.
-
-### C1 — minimalny własny plot i build
-
-**Status: następny etap.**
-
-Cel:
-
-- usunąć zależność starego renderera z konfiguracji projektu;
-- zmienić nazwę projektu/targetu/executable na wariant custom;
-- uruchomić aplikację z Dear ImGui + GLFW + OpenGL bez starego backendu wykresu;
-- utworzyć własny plot rectangle;
-- narysować co najmniej jedną serię przez własną geometrię screen-space i clipping.
-
-Na końcu: build + minimalny GUI smoke test.
+## Kolejne etapy
 
 ### C2 — transforms, osie, grid i X navigation
 
+Następny etap.
+
 Cel:
 
-- wspólny system data/screen;
+- wydzielić wspólny, testowalny system data/screen;
 - własna oś czasu;
 - X tick generation;
 - neutralny grid;
@@ -139,28 +159,26 @@ Cel:
 
 Cel:
 
-- bezpośrednie mapowanie każdej serii z jej własnego `viewMin/viewMax`;
 - semantic Y aktywnej serii;
 - kolorowy grid;
 - Fit Y;
 - `Alt + drag` / `Alt + wheel`;
 - RMB hit-test;
-- Custom Legend;
-- Halo / Outline.
+- pełna integracja Custom Legend;
+- manualna ocena Halo / Outline.
 
 ### C4 — Values i crosshair
 
 Cel:
 
-- wspólny mouse time z własnego plot transform;
-- Values z istniejącą interpolacją;
-- crosshair niezależny od Values.
+- rozszerzyć i ponownie zweryfikować obecny C1 mouse-time path;
+- Values/crosshair przy pan/zoom X.
 
 ### C5 — kursory A/B
 
 Cel:
 
-- zachować `CursorModel` jeśli nadal pasuje;
+- wykorzystać `CursorModel`, jeśli nadal pasuje;
 - własny render, hit-test i drag;
 - Shift/Ctrl set;
 - plain drag;
@@ -193,24 +211,14 @@ Cel:
 
 ## Automatyzacja
 
-Projekt nadal ma trzy poziomy weryfikacji:
+Projekt ma trzy poziomy weryfikacji:
 
 1. functional C++ — GoogleTest + CTest;
 2. GUI integration — Dear ImGui Test Engine;
 3. manual — wygląd, ergonomia i płynność.
 
-Podstawową ścieżką jest docelowy Windows PC przez CANStatio Test Agent.
-
-GitHub-hosted Windows pozostaje wyłącznie ręcznym fallbackiem, gdy target PC/Test Agent jest niedostępny.
-
-## Nadal niezaimplementowane w custom rendererze
-
-Na moment resetu dokumentacji **cała warstwa custom chart jest jeszcze do wykonania**.
-
-Skopiowany baseline może nadal uruchamiać się i przechodzić swoje stare testy, ale nie należy tego raportować jako postępu własnego renderera.
+Podstawową ścieżką pozostaje docelowy Windows PC przez CANStatio Test Agent.
 
 ## Najbliższy krok
 
-Rozpocząć **C1 — minimalny własny plot i build** na `main`.
-
-Pierwszy checkpoint powinien być celowo mały: aplikacja bez starego backendu wykresu, własny prostokąt plot area, podstawowy clipping i jedna lub kilka linii danych rysowanych w screen-space. Dopiero po takim działającym fundamencie należy przenosić osie i interakcje.
+Najpierw wykonać zaległą weryfikację C1, gdy `CANStatio-ImGui-custom-test` będzie dostępny w Test Agencie. Następnie rozpocząć **C2 — transforms, time axis, grid i app-owned X navigation**.
