@@ -14,136 +14,120 @@ Nie zapisuj, nie zmieniaj i nie usuwaj niczego w innych repozytoriach. Repozytor
 
 ## Co przeczytać przed pracą
 
-Przed istotną zmianą przeczytaj w tej kolejności:
-
 1. `AGENTS.md`
 2. `docs/PROJECT_SPEC.md`
 3. `docs/DECISIONS.md`
 4. `docs/PROGRESS.md`
-5. `docs/AUTOMATED_TESTS.md` — jeśli zadanie dotyczy testów lub weryfikacji
+5. `docs/AUTOMATED_TESTS.md` — dla testów/weryfikacji
 6. odpowiednie pliki źródłowe
 
 ## Hierarchia źródeł prawdy
 
-W przypadku sprzeczności obowiązuje kolejność:
-
 1. bieżące jawne polecenie użytkownika;
-2. `docs/AUTOMATED_TESTS.md` — wyłącznie w zakresie testów, ich narzędzi i uruchamiania;
+2. `docs/AUTOMATED_TESTS.md` — tylko w zakresie testów;
 3. `docs/PROJECT_SPEC.md`;
 4. `docs/DECISIONS.md`;
 5. `docs/PROGRESS.md`;
 6. bieżąca implementacja.
 
-Skopiowany kod startowy może zawierać rozwiązania należące do poprzedniej architektury. Nie traktuj ich jako wymagania tylko dlatego, że istnieją w kodzie.
+Nie dopasowuj po cichu wymagań do kodu. Jeśli implementacja i dokumentacja się rozjechały, ustal która warstwa jest nieaktualna i popraw ją jawnie.
 
 ## Model pracy z branchami
 
-Normalny rozwój odbywa się liniowo na `main`.
-
-Nie twórz brancha dla każdej zwykłej funkcji. Osobny branch ma sens dopiero dla zmiany, która rzeczywiście korzysta z izolacji, np. dużego eksperymentu architektonicznego, zmiany modelu danych, toolchainu albo infrastruktury testowej.
+Normalny rozwój odbywa się liniowo na `main`. Osobny branch ma sens tylko dla rzeczywiście izolowanego dużego eksperymentu architektonicznego/toolchainowego/infrastrukturalnego.
 
 ## Zasady pracy
 
 Przy większym zadaniu:
 
-1. sprawdź aktualny stan `CANStatio-ImGui-custom-test` i właściwy branch;
-2. ustal minimalny zakres zmian;
-3. najpierw utrzymuj zgodność z bieżącą specyfikacją, nie ze skopiowanym rozwiązaniem technicznym;
-4. nie dodawaj abstrakcji, klas ani zależności bez realnej potrzeby;
-5. nie twórz warstw tylko po to, aby zachować strukturę starego renderera;
-6. po zmianach uruchom build, jeśli środowisko na to pozwala;
-7. uruchom odpowiednią warstwę testów: functional, GUI albo obie;
-8. nie deklaruj zachowania jako zweryfikowanego, jeśli nie zostało rzeczywiście uruchomione;
-9. wygląd, ergonomię i UX traktuj oddzielnie od automatycznego PASS/FAIL;
-10. po istotnej zmianie zaktualizuj `docs/PROGRESS.md`;
-11. jeśli zapadła nowa istotna decyzja, dopisz ją do `docs/DECISIONS.md`, a jeśli zmienia wymaganie — również do `docs/PROJECT_SPEC.md`.
+1. sprawdź aktualny `main`;
+2. utrzymuj zgodność ze specyfikacją, nie z historią starego renderera;
+3. nie dodawaj abstrakcji ani zależności bez realnej potrzeby;
+4. współdziel jedną matematykę data/screen między renderingiem i narzędziami;
+5. po zmianach uruchom build/testy tylko w rzeczywiście dostępnym środowisku;
+6. nie deklaruj PASS bez rzeczywistego uruchomienia;
+7. wygląd, ergonomię i performance traktuj oddzielnie od automatycznego PASS/FAIL;
+8. po istotnej zmianie zaktualizuj `docs/PROGRESS.md`;
+9. decyzje trwałe zapisuj w `docs/DECISIONS.md`, zmiany wymagań także w `docs/PROJECT_SPEC.md`.
 
 ## Granice eksperymentu
 
-Na obecnym etapie nie dodawaj bez osobnej decyzji:
+Bez osobnej decyzji nie dodawaj:
 
-- parsera CSV ani otwierania plików;
+- parsera CSV/otwierania plików;
 - DataCore ani modelu projektu CANStatio;
 - Overview/minimapy;
 - irregular sampling ani osobnych timestampów serii;
-- LOD/downsamplingu, dopóki raw rendering nie pokaże realnej potrzeby;
-- integracji z głównym repo CANStatio;
+- NaN/gaps i step/digital;
+- LOD/downsamplingu przed pomiarem Reference/Stress Raw;
+- integracji z głównym CANStatio;
 - dodatkowej biblioteki wykresowej;
-- zewnętrznego OS-level frameworka automatyzacji GUI, jeśli Dear ImGui Test Engine wystarcza;
-- nowego frameworka testów funkcyjnych, jeśli GoogleTest + CTest pokrywa potrzeby.
+- zewnętrznego OS-level GUI automation, jeśli Dear ImGui Test Engine wystarcza;
+- nowego frameworka functional, jeśli GoogleTest + CTest wystarcza.
 
-## Bazowy stack
+## Stack
 
 - C++20
-- Windows jako pierwsza platforma
+- Windows first
 - GCC / MinGW-w64 (MSYS2 UCRT64)
 - CMake + Ninja
-- GLFW
-- OpenGL 3.3 Core Profile
-- Dear ImGui
-- Dear ImGui Test Engine
+- GLFW + OpenGL 3.3 Core
+- Dear ImGui `v1.92.9b`
+- Dear ImGui Test Engine `508a8fc8dacac2f346d353fed31b9bc90ed29adc`
 - GoogleTest + CTest
 
-Przypięte biblioteki:
+## Aktualna architektura
 
-- Dear ImGui `v1.92.9b`
-- GLFW `3.5.1`
-- Dear ImGui Test Engine commit `508a8fc8dacac2f346d353fed31b9bc90ed29adc`
+Pierwszy pełny wariant custom chart jest zaimplementowany.
 
-## Docelowa odpowiedzialność własnego wykresu
+Warstwa aplikacji jest właścicielem:
 
-Warstwa aplikacji ma być właścicielem:
-
-- plot area i jego stabilnego layoutu;
-- transformacji czasu na X w pikselach i odwrotnie;
-- transformacji wartości każdej serii na Y w pikselach i odwrotnie;
+- plot area i stabilnego layoutu;
+- data/screen transforms (`ChartMath`);
 - osi, ticków, etykiet i grida;
-- renderowania serii i clippingu;
+- raw renderingu serii i clippingu;
 - hit-testu serii i overlayów;
-- routingu inputu;
 - pan/zoom X;
-- pan/zoom Y aktywnej serii;
+- pan/zoom Y active visible series;
+- active highlighting;
 - crosshair;
-- kursorów A/B;
-- markerów.
+- cursorów A/B (`CursorModel`);
+- markerów (`MarkerModel`);
+- priorytetów inputu (`InputPolicy`).
 
-Nie zachowuj modelu wspólnej sztucznej przestrzeni Y tylko dlatego, że był używany w skopiowanej implementacji. Każda seria ma własny zakres `viewMin/viewMax`, a renderer może bezpośrednio mapować surową wartość do pikseli plot area.
+Nie istnieje wspólna sztuczna przestrzeń Y. Każda seria mapuje własne `viewMin/viewMax` bezpośrednio do tego samego plot rectangle.
 
-## Najważniejsze założenia funkcjonalne
+## Najważniejsze zachowanie
 
-- wszystkie serie mają wspólny regularny X;
-- każda seria ma niezależny stan Y;
-- plot area nie może zmieniać geometrii tylko dlatego, że zmieniła się aktywna seria;
-- tylko aktywna widoczna seria prezentuje semantyczne wartości Y;
-- ukryta seria zachowuje dane, kolor, active state i Y state;
-- aktywna seria jest rysowana na końcu;
-- X i Y navigation są obsługiwane przez aplikację;
-- Custom Legend jest jedyną docelową legendą funkcjonalną;
-- Values, crosshair, kursory i markery korzystają ze wspólnego systemu współrzędnych własnego wykresu.
+- regularny wspólny X;
+- niezależny Y każdej serii;
+- fixed plot geometry przy zmianie active;
+- plain LMB drag / wheel = pan/zoom X;
+- `Alt + drag/wheel` = pan/zoom Y active visible series;
+- RMB = nearest-series selection;
+- `Shift + LMB` / `Ctrl + LMB` = set A/B;
+- plain drag cursor/marker = move;
+- `Ctrl + RMB` cursor/marker = hide/remove;
+- `Alt + click` = marker, `Alt + drag` po threshold = Y pan;
+- modifier gestures są wyłączne i nie fallbackują do X/selection;
+- Values/crosshair/cursors/markers korzystają ze wspólnego systemu współrzędnych.
 
 Pełna semantyka znajduje się w `docs/PROJECT_SPEC.md`.
 
 ## Strategia testów
 
-Projekt ma trzy poziomy weryfikacji:
+1. **functional C++** — `ChartMath`, modele, `InputPolicy`, dataset/Values i edge-case'y;
+2. **GUI integration** — Dear ImGui Test Engine;
+3. **manual** — wygląd, ergonomia i performance.
 
-1. **functional C++** — logika, transformacje, stan, matematyka i edge-case'y bez GUI;
-2. **GUI integration** — rzeczywiste interakcje Dear ImGui i input routing przez Dear ImGui Test Engine;
-3. **manual** — wygląd, czytelność, ergonomia i subiektywna płynność.
+Docelowy Windows PC jest preferowanym środowiskiem weryfikacji. Test Agent jest tylko kanałem komunikacji i **nie należy go obecnie używać, dopóki użytkownik nie poinformuje, że znów działa**.
 
-Docelowy Windows PC / Test Agent jest podstawową ścieżką testową. GitHub-hosted Windows pozostaje wyłącznie ręcznym fallbackiem, gdy target PC/Test Agent jest niedostępny.
+GitHub-hosted Windows pozostaje ręcznym `workflow_dispatch` fallbackiem build + functional.
 
-## Stan przejściowy
+## Aktualny stan weryfikacji
 
-Repozytorium zawiera skopiowaną działającą bazę, która ma pomóc zachować sprawdzone zachowanie użytkowe i istniejące małe modele danych/stanu.
+Pełna implementacja jest zapisana na `main`, ale nie została jeszcze zbudowana ani uruchomiona po integracji C2–C7.
 
-Jej renderer, input routing, osie i overlaye są materiałem przejściowym. Wraz z migracją należy usuwać elementy, które nie mają sensu w architekturze własnego wykresu, zamiast odtwarzać je mechanicznie.
+Nie traktuj historycznych wyników skopiowanego prototypu jako wyniku custom renderera.
 
-`docs/PROGRESS.md` musi zawsze rozróżniać:
-
-- co działa jeszcze tylko w bazie przejściowej;
-- co zostało już przeniesione do własnego wykresu;
-- co zostało automatycznie zweryfikowane po migracji;
-- co zostało ręcznie zweryfikowane;
-- czego jeszcze nie sprawdzono;
-- najbliższy krok.
+Najbliższa przyszła praca po odzyskaniu środowiska testowego to walidacja, poprawki wynikające z testów oraz pomiar Reference/Stress Raw — nie dalsze dodawanie funkcji przed pierwszym pełnym sprawdzeniem.
