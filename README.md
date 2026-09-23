@@ -65,13 +65,22 @@ Implemented:
 - exclusive modifier routing;
 - reset/preset switching;
 - Small, Reference, Overlap, Mixed Scale, Spikes / Noise, Long Time and Stress Raw datasets;
-- new functional tests for chart math, input policy, marker state and deterministic generator behavior.
+- functional tests for chart math, input policy, marker state and deterministic generator behavior.
 
 ### Verification state
 
-The implementation has **not yet been validated on the target Windows PC**. Per current instruction, CANStatio Test Agent is not used because it is temporarily unavailable.
+Target Windows PC validation for commit `5f17de5` completed successfully:
 
-Do not treat the historical baseline results from the copied prototype as verification of this implementation. Build, functional GUI regression and manual UX/performance validation remain pending.
+```text
+configure: PASS
+build:     PASS
+functional: 41/41 PASS
+GUI:         6/6 PASS
+```
+
+JUnit reports were generated for both functional and GUI suites.
+
+Manual UX and raw Reference / Stress Raw performance validation remain pending. The current GUI suite is still a smoke/integration suite and does not yet exercise every interaction gesture end-to-end.
 
 ## Stack
 
@@ -114,7 +123,7 @@ build/canstatio_imgui_custom_test.exe --run-tests
 
 ## Testing policy
 
-Normal validation is performed on the target Windows PC. The Test Agent may be used only as a communication path to that environment and is intentionally not used while unavailable.
+Normal validation is performed on the target Windows PC. The Test Agent is used only as a communication path to that environment.
 
 `.github/workflows/windows-ci.yml` remains a manually triggered Windows build + functional fallback. Linux GitHub Actions is not part of the project.
 
