@@ -81,6 +81,10 @@ bool App::initialize() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
 
+    // Keep line anti-aliasing, but avoid the texture-based AA path. On the target
+    // Windows/OpenGL setup transient flashes were observed around thin grid lines.
+    ImGui::GetStyle().AntiAliasedLinesUseTex = false;
+
     if (!ImGui_ImplGlfw_InitForOpenGL(window_, true)) {
         return false;
     }
