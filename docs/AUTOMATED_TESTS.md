@@ -88,15 +88,43 @@ custom_chart/fit_x
 
 Suite jest celowo oparty na zachowaniu użytkowym i publicznym stanie testowym, a nie na strukturze renderera.
 
-Pełna implementacja ma znacznie większy zakres niż aktualny GUI smoke suite. Po uruchomieniu środowiska testowego należy rozszerzyć GUI regression przede wszystkim o rzeczywiste gesty X/Y, RMB selection, cursory i markery. Functional tests już chronią matematykę oraz jawny routing modifierów.
+Pełna implementacja ma znacznie większy zakres niż aktualny GUI smoke suite. Należy rozszerzyć GUI regression przede wszystkim o rzeczywiste gesty X/Y, RMB selection, cursory i markery. Functional tests już chronią matematykę oraz jawny routing modifierów.
 
 ## Weryfikacja obecnego kodu
 
-Aktualny kod pełnego custom chart **nie został jeszcze uruchomiony w środowisku testowym**.
+Target Windows PC zweryfikował implementację z commita `5f17de5`.
 
-Nie raportujemy PASS/FAIL dla obecnego commita.
+Configure/build:
 
-Zgodnie z bieżącą instrukcją użytkownika CANStatio Test Agent nie jest używany, ponieważ obecnie nie działa. Nie wolno traktować historycznych wyników skopiowanego prototypu jako walidacji aktualnego renderera.
+```text
+configure: PASS
+build: PASS
+```
+
+Functional CTest:
+
+```text
+41/41 PASS
+100% tests passed
+exit code 0
+```
+
+GUI Dear ImGui Test Engine:
+
+```text
+6/6 PASS
+Tests Result: OK
+exit code 0
+```
+
+Raporty JUnit zostały utworzone:
+
+```text
+build/test-results/functional-tests.xml
+build/test-results/imgui-tests.xml
+```
+
+To jest pierwsza potwierdzona automatyczna walidacja pełnego custom renderera na docelowym Windows PC.
 
 ## Historyczny baseline
 
@@ -107,20 +135,22 @@ Test Agent Windows: 21/21 functional PASS
 Test Agent Windows: 19/19 GUI PASS
 ```
 
-To wyłącznie punkt odniesienia historycznego.
+To wyłącznie punkt odniesienia historycznego i nie należy mieszać go z aktualnym wynikiem 41/41 + 6/6.
 
-## Docelowa sekwencja walidacji
+## Co nadal wymaga rozszerzenia automatyzacji
 
-Gdy środowisko będzie dostępne:
+Aktualny GUI suite jest smoke/integration suite. Nie obejmuje jeszcze end-to-end:
 
-```text
-configure/build
--> ctest functional
--> Dear ImGui Test Engine GUI
--> manual UX
--> Reference performance
--> Stress Raw performance
-```
+- plain drag / wheel X;
+- Alt drag / wheel Y;
+- RMB series selection;
+- cursor set / drag / hide;
+- marker create / drag / remove;
+- konfliktów modifierów na rzeczywistym plot area.
+
+Te elementy mają już testowalną matematykę/state/input policy po stronie functional, ale powinny dostać także najważniejsze testy GUI regression.
+
+## Manualna walidacja
 
 Manualnie należy sprawdzić przede wszystkim:
 
@@ -132,6 +162,17 @@ Manualnie należy sprawdzić przede wszystkim:
 - czy Alt-click / Alt-drag threshold jest ergonomiczny;
 - czy Reference jest praktycznie płynny;
 - gdzie Stress Raw ujawnia potrzebę LOD.
+
+## Docelowa dalsza sekwencja walidacji
+
+Po obecnym PASS pozostaje:
+
+```text
+manual UX
+-> rozszerzenie GUI regression
+-> Reference performance
+-> Stress Raw performance
+```
 
 ## GitHub Actions fallback
 
