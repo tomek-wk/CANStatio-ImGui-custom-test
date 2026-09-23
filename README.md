@@ -1,59 +1,77 @@
 # CANStatio ImGui Custom Chart Test
 
-Standalone experiment for evaluating Dear ImGui with a custom chart implementation as the chart frontend for CANstatio LogViewer.
+Standalone experiment for evaluating Dear ImGui with a fully application-owned chart implementation as the chart frontend for CANstatio LogViewer.
 
-The repository is intentionally separate from the main CANStatio project so the experiment can freely change chart architecture, rendering, interaction rules and test strategy without affecting the production LogViewer.
+The repository is intentionally separate from the main CANStatio project. The experiment can change chart architecture, rendering, interaction rules and test strategy without affecting any other repository.
 
 ## AI / project handoff
 
 Read in this order when resuming work:
 
-1. `AGENTS.md` — working rules, repository limits and source-of-truth hierarchy;
-2. `docs/PROJECT_SPEC.md` — agreed custom-chart specification;
-3. `docs/DECISIONS.md` — current design decisions;
-4. `docs/PROGRESS.md` — exact implementation and verification state;
-5. `docs/AUTOMATED_TESTS.md` — automated test strategy and tools;
+1. `AGENTS.md` — working rules and repository boundary;
+2. `docs/PROJECT_SPEC.md` — authoritative custom-chart specification;
+3. `docs/DECISIONS.md` — design decisions;
+4. `docs/PROGRESS.md` — implementation and verification state;
+5. `docs/AUTOMATED_TESTS.md` — test strategy;
 6. relevant source files.
 
 ## Scope
 
-This project tests the chart itself and chart-adjacent UI only. It does not include file parsing, project loading, DataCore, CSV import or other production LogViewer application features.
+The experiment covers the chart and chart-adjacent UI only. It does not include file parsing, CSV import, DataCore, LogViewer project loading or integration with the main CANStatio repository.
 
-The target experiment covers deterministic generated datasets, shared regular time X, independent Y state per series, custom plot layout/axes/grid/transforms, custom navigation, Fit X/Y, active-series selection and highlighting, Custom Legend, Values, crosshair, A/B cursors, numbered markers and later raw-rendering performance tests.
+Implemented experiment scope:
 
-Overview/minimap remains out of scope for the first experiment.
+- deterministic generated datasets and all planned presets;
+- shared regular time X;
+- independent `viewMin/viewMax` per series;
+- application-owned plot layout and data/screen transforms;
+- custom X and semantic-Y axes, ticks and grid;
+- raw series rendering through Dear ImGui `ImDrawList`;
+- pan/zoom X and active-series Y;
+- Fit X / Fit Y;
+- screen-space RMB series hit-test;
+- active series with Halo / Outline;
+- Custom Legend and visibility;
+- Values with linear interpolation and crosshair;
+- A/B time cursors;
+- numbered draggable markers;
+- explicit input-priority routing;
+- raw Reference / Stress Raw path for later performance evaluation.
 
-## Architecture target
+Overview/minimap, irregular sampling, gaps/NaN semantics, step/digital signals and LOD/downsampling remain outside the first experiment.
+
+## Architecture
 
 Dear ImGui remains the GUI framework. The chart itself is application-owned.
 
-The application owns plot rectangle and layout, data/screen transforms, axes/ticks/grid, series rendering and clipping, hit-testing, input routing, pan/zoom and chart overlays. The target architecture does not depend on an external plotting library.
+`ChartMath` owns reusable coordinate/navigation/tick mathematics. `Chart` owns plot rendering, hit-testing and interaction routing. `CursorModel` and `MarkerModel` keep time-based overlay state. `InputPolicy` makes modifier priority explicit and independently testable.
+
+There is no external plotting library and no artificial shared Y coordinate space. Each visible series maps directly from its own raw `viewMin..viewMax` to the common plot rectangle.
 
 ## Current status
 
-The repository was seeded from an already working chart prototype so that data models, UI concepts, interaction semantics and tests could be reused as reference material.
+The complete first custom-chart specification has been implemented on `main` in one integration pass.
 
-On 2026-09-23 the authoritative documentation was reset for the custom-chart variant.
+Implemented:
 
-### C1 — minimal custom plot
+- custom time and Y axes;
+- neutral and active semantic grid;
+- mouse-anchored multiplicative X zoom and grab-content X pan;
+- active-Y pan/zoom;
+- stable fixed plot geometry;
+- series selection by nearest visible segment;
+- cursor A/B set, drag and hide;
+- marker create, drag and remove with Alt-click/Alt-drag threshold;
+- exclusive modifier routing;
+- reset/preset switching;
+- Small, Reference, Overlap, Mixed Scale, Spikes / Noise, Long Time and Stress Raw datasets;
+- new functional tests for chart math, input policy, marker state and deterministic generator behavior.
 
-Implemented on `main`:
+### Verification state
 
-- removed the old plotting dependency from CMake;
-- renamed the project/GUI target to `CANStatioImGuiCustomTest` / `canstatio_imgui_custom_test`;
-- removed creation/destruction of the old plotting context;
-- replaced `Chart` with an application-owned plot rectangle;
-- added direct time/value -> screen-space transforms;
-- render visible series directly through Dear ImGui `ImDrawList` with clipping;
-- keep active-series Halo/Outline using the same screen-space geometry as the data line;
-- calculate mouse time directly from the custom plot rectangle;
-- keep Values and crosshair connected to the new mouse-time state;
-- removed the old renderer-specific cursor overlay;
-- replaced the old GUI regression set with a minimal C1 smoke suite.
+The implementation has **not yet been validated on the target Windows PC**. Per current instruction, CANStatio Test Agent is not used because it is temporarily unavailable.
 
-C1 has **not yet been verified on the target Windows PC**. At the time of implementation the Test Agent heartbeat was stale and its documented local project registry did not yet include this repository. Historical test results from the copied baseline therefore do not count as C1 verification.
-
-Next functional stage: **C2 — transforms, time axis, grid and app-owned X navigation**.
+Do not treat the historical baseline results from the copied prototype as verification of this implementation. Build, functional GUI regression and manual UX/performance validation remain pending.
 
 ## Stack
 
@@ -63,18 +81,11 @@ Next functional stage: **C2 — transforms, time axis, grid and app-owned X navi
 - CMake + Ninja
 - GLFW
 - OpenGL 3.3 Core Profile
-- Dear ImGui
-- GoogleTest + CTest for functional tests
-- Dear ImGui Test Engine for GUI integration tests
-- GitHub Actions Windows only as a manual emergency fallback when the Test Agent/target PC is unavailable
-
-Pinned baseline:
-
 - Dear ImGui `v1.92.9b`
-- GLFW `3.5.1`
+- GoogleTest + CTest
 - Dear ImGui Test Engine commit `508a8fc8dacac2f346d353fed31b9bc90ed29adc`
 
-Dear ImGui, GLFW and Test Engine are fetched by CMake using pinned references. GoogleTest is found as a local/system package with `find_package(GTest REQUIRED)`.
+GLFW, Dear ImGui and Test Engine are fetched by CMake using pinned references. GoogleTest is found through `find_package(GTest REQUIRED)`.
 
 ## Build and run
 
@@ -101,40 +112,16 @@ GUI integration tests:
 build/canstatio_imgui_custom_test.exe --run-tests
 ```
 
-JUnit reports:
-
-```text
-build/test-results/functional-tests.xml
-build/test-results/imgui-tests.xml
-```
-
-## Verification baseline
-
-The copied pre-migration baseline had previously passed:
-
-```text
-Test Agent Windows: 21/21 functional + 19/19 GUI
-```
-
-Those results are historical only. After each custom-renderer migration stage, affected functionality must be revalidated.
-
 ## Testing policy
 
-Normal validation uses the target Windows PC through CANStatio Test Agent:
+Normal validation is performed on the target Windows PC. The Test Agent may be used only as a communication path to that environment and is intentionally not used while unavailable.
 
-```text
-configure/build
--> functional
--> GUI
--> manual UX when relevant
-```
+`.github/workflows/windows-ci.yml` remains a manually triggered Windows build + functional fallback. Linux GitHub Actions is not part of the project.
 
-`.github/workflows/windows-ci.yml` remains only a manual fallback when the target PC/Test Agent is unavailable. Linux GitHub Actions is not part of the project.
+Manual validation remains required for visual quality, interaction ergonomics and raw-rendering performance.
 
 ## Repository discipline
 
-Normal development proceeds on `main` unless a change materially benefits from isolation.
+Work in this conversation is scoped strictly to `CANStatio-ImGui-custom-test`. No other repository may be written, modified or cleaned up.
 
-This conversation and project work are scoped to `CANStatio-ImGui-custom-test`. Other repositories must not be modified, written to or cleaned up. The Test Agent repository may only be used as a communication path to the test environment.
-
-After meaningful implementation or verification work, update `docs/PROGRESS.md`. Record important design decisions in `docs/DECISIONS.md` and requirement changes in `docs/PROJECT_SPEC.md`.
+After meaningful implementation or verification work, update `docs/PROGRESS.md`. Requirement changes belong in `docs/PROJECT_SPEC.md` and durable decisions in `docs/DECISIONS.md`.

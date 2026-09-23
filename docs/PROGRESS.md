@@ -8,217 +8,176 @@ Normalny branch rozwojowy:
 main
 ```
 
-Repozytorium zostało utworzone jako niezależny wariant eksperymentalny dla Dear ImGui z własną implementacją wykresu.
+Repozytorium jest niezależnym eksperymentem Dear ImGui z własną implementacją wykresu. Skopiowany wcześniejszy prototyp był wyłącznie bazą migracyjną; rozwiązania techniczne poprzedniego renderera nie są częścią aktualnej architektury.
 
-Początkowo skopiowano do niego działającą bazę wcześniejszego prototypu, aby zachować sprawdzone modele danych, zachowania użytkowe i testy jako materiał referencyjny.
+## Specyfikacja
 
-Skopiowany renderer i jego rozwiązania techniczne są traktowane jako legacy baseline, a nie jako architektura docelowa.
+**Status: kompletna bazowa specyfikacja pierwszego eksperymentu.**
 
-## C0 — dokumentacja i wymagania
+`docs/PROJECT_SPEC.md` definiuje model danych, rendering, osie, nawigację, active/visibility, Values, cursory, markery, input priority, presety i kryterium sukcesu.
 
-**Status: zakończony.**
+## Implementacja
 
-- zebrano aktualną i planowaną funkcjonalność;
-- usunięto z dokumentacji założenia zależne od poprzedniego renderera;
-- zdefiniowano app-owned plot, transforms, input i overlays;
-- zresetowano rejestr decyzji pod wariant custom chart;
-- zapisano nadrzędną granicę repozytorium.
+### C0 — dokumentacja i wymagania
 
-## C1 — minimalny własny plot i build
+**Zakończony.**
 
-**Status implementacji: zakończony.**
+### C1 — minimalny własny plot
 
-**Status weryfikacji na target Windows: oczekuje.**
+**Zakończony.**
 
-Zaimplementowano:
-
-- usunięcie starej biblioteki wykresowej z `CMakeLists.txt`;
-- zmianę projektu na `CANStatioImGuiCustomTest`;
-- zmianę executable na `canstatio_imgui_custom_test`;
-- usunięcie tworzenia i niszczenia starego kontekstu wykresowego;
-- własny `ChartHost` i app-owned plot rectangle;
-- bezpośrednie mapowanie czasu na X w pikselach;
-- bezpośrednie mapowanie wartości każdej serii z jej `viewMin/viewMax` na Y w pikselach;
-- clipping renderowania do plot area;
-- rysowanie widocznych serii przez `ImDrawList::AddPolyline`;
-- active series rysowaną na końcu;
-- Halo/Outline korzystające z tej samej geometrii screen-space co cienka linia danych;
-- mouse time liczony z własnego plot rectangle;
-- crosshair oparty o własną geometrię;
-- Values nadal korzystające z `ChartMouseState`, już zasilanego przez custom plot;
-- usunięcie renderer-specific `CursorOverlay`;
-- usunięcie starych GUI testów navigation/selection/Values/cursors zależnych od poprzedniej architektury;
-- nowy minimalny GUI suite C1 obejmujący startup, okna, Custom Legend, highlight mode, plot geometry/mouse time i Fit X;
-- aktualizację `run.bat` i `update.bat` do nowej nazwy executable.
-
-Nie zostały jeszcze przeniesione:
-
-- oś czasu X i jej ticki;
-- neutralny grid;
-- pan/zoom X;
-- semantic Y i kolorowy grid;
-- pan/zoom Y;
-- RMB selection;
-- własny cursor overlay A/B;
-- markery;
-- pełny input priority.
-
-### Weryfikacja C1
-
-Próba użycia Test Agenta została zatrzymana przed kolejkovaniem komend:
-
-- ostatni dostępny heartbeat agenta był nieaktualny względem czasu pracy;
-- dokumentowana lokalna konfiguracja agenta zawierała tylko poprzedni projekt, nie `CANStatio-ImGui-custom-test`.
-
-Dlatego nie deklarujemy configure/build ani testów jako wykonanych.
-
-## Docelowa architektura
-
-Dear ImGui pozostaje frameworkiem GUI.
-
-Własna warstwa wykresu ma przejąć:
-
-- plot area i layout;
-- data/screen transforms;
-- render serii;
-- clipping;
-- osie, ticki, etykiety i grid;
-- pan/zoom X;
-- pan/zoom Y aktywnej serii;
-- hit-test serii;
-- input routing;
-- active highlight;
-- crosshair;
-- cursory A/B;
-- markery.
-
-Nie używamy wspólnej sztucznej przestrzeni Y. Każda seria jest mapowana bezpośrednio ze swojego `viewMin..viewMax` do pikseli plot area.
-
-## Funkcjonalność do zachowania
-
-Z baseline pozostają wymaganiami użytkowymi, jeśli później nie zostaną jawnie zmienione:
-
-- regularny wspólny X;
-- niezależny `viewMin/viewMax` każdej serii;
-- Fit X i Fit Y;
-- active series;
-- visibility serii;
-- Custom Legend;
-- semantic Y aktywnej serii;
-- neutralny i kolorowy grid;
-- plain drag / wheel dla X;
-- `Alt + drag` / `Alt + wheel` dla aktywnego Y;
-- RMB hit-test serii;
-- Values z interpolacją;
-- crosshair;
-- Halo / Outline;
-- kursory A/B;
-- markery i input priority.
-
-## Historyczna weryfikacja baseline
-
-Skopiowana baza miała wcześniej potwierdzony wynik:
-
-```text
-Test Agent Windows: 21/21 functional PASS + 19/19 GUI PASS
-```
-
-Ten wynik nie jest wynikiem custom renderera.
-
-## Co zachowano bez przepisywania od zera
-
-Na etapie C1 pozostawiono:
-
-- `Dataset` i `Series`;
-- `DataGenerator`;
-- `ValuesModel`;
-- `CursorModel` jako semantyczny state na przyszły etap C5;
-- deterministic colors;
-- `CustomLegend`;
-- `ValuesWindow`;
-- funkcjonalne testy modeli.
-
-## Kolejne etapy
+Usunięto zewnętrzną bibliotekę wykresową i utworzono app-owned plot rectangle z bezpośrednim raw-data -> screen rendering przez Dear ImGui `ImDrawList`.
 
 ### C2 — transforms, osie, grid i X navigation
 
-Następny etap.
+**Zaimplementowany.**
 
-Cel:
-
-- wydzielić wspólny, testowalny system data/screen;
-- własna oś czasu;
-- X tick generation;
+- `ChartMath` jako wspólna matematyka data/screen;
+- transformacje X/Y i odwrotne;
+- własne ticki czasu;
+- własna oś X i format względnego czasu;
 - neutralny grid;
-- pan X;
-- zoom X;
+- plain LMB grab-content pan X;
+- plain wheel zoom X względem czasu pod myszą;
+- minimum X = `dt`;
+- brak clampa viewportu do datasetu;
 - Fit X;
-- stabilny plot layout.
+- stała geometria plot area.
 
 ### C3 — niezależny Y i active series
 
-Cel:
+**Zaimplementowany.**
 
-- semantic Y aktywnej serii;
-- kolorowy grid;
+- bezpośrednie mapowanie każdego `viewMin/viewMax` do plot area;
+- semantic Y active visible series;
+- Y ticks `1/2/5 × 10^n`;
+- kolorowy semantic grid;
 - Fit Y;
-- `Alt + drag` / `Alt + wheel`;
-- RMB hit-test;
-- pełna integracja Custom Legend;
-- manualna ocena Halo / Outline.
+- `Alt + drag` grab-content pan Y;
+- `Alt + wheel` zoom Y wokół środka zakresu;
+- RMB screen-space hit-test segmentów;
+- toggle/clear active;
+- hidden-active zachowuje logiczny stan;
+- Halo / Outline korzystają z tej samej geometrii co linia danych.
 
 ### C4 — Values i crosshair
 
-Cel:
+**Zaimplementowany.**
 
-- rozszerzyć i ponownie zweryfikować obecny C1 mouse-time path;
-- Values/crosshair przy pan/zoom X.
+- mouse time pochodzi z własnej transformacji screen -> time;
+- Values zachowuje interpolację liniową;
+- ukryte serie nie pojawiają się w Values;
+- crosshair jest niezależnym dokładnym mouse-X i nie snapuje do próbek;
+- zachowanie działa z app-owned pan/zoom X.
 
 ### C5 — kursory A/B
 
-Cel:
+**Zaimplementowany.**
 
-- wykorzystać `CursorModel`, jeśli nadal pasuje;
-- własny render, hit-test i drag;
-- Shift/Ctrl set;
-- plain drag;
-- Ctrl+RMB hide;
-- clamp do datasetu.
+- dokładnie dwa time cursors A/B;
+- `Shift + LMB` set A;
+- `Ctrl + LMB` set B;
+- plain LMB drag istniejącego kursora;
+- `Ctrl + RMB` hide;
+- clamp do datasetu;
+- własny render, hit-test i drag w screen-space;
+- po pan/zoom X kursory zachowują czas.
 
 ### C6 — markery i pełny input priority
 
-Cel:
+**Zaimplementowany.**
 
-- numerowane markery;
-- Alt-click vs Alt-drag threshold;
-- plain drag markera;
-- Ctrl+RMB remove;
-- kolizje z cursorami;
-- pełne testy priorytetów gestów.
+- `MarkerModel` z numeracją `0,1,2...`;
+- usunięte ID nie jest ponownie używane;
+- Reset zeruje licznik;
+- `Alt + LMB` tworzy marker po release, jeśli ruch pozostał poniżej progu;
+- po przekroczeniu około 5 px gest staje się pan Y przy active visible series;
+- bez active visible series przekroczony Alt-drag jest anulowany;
+- plain LMB drag markera;
+- `Ctrl + RMB` remove;
+- jawna `InputPolicy` dla priorytetów Shift/Ctrl/Alt/plain;
+- modifier gestures nie przechodzą awaryjnie do X/selection;
+- drag zachowuje ownership do release.
 
-### C7 — pełne presety i wydajność
+### C7 — pełne presety i ścieżka performance
 
-Cel:
+**Zaimplementowana funkcjonalnie.**
 
-- Reference;
-- Overlap;
-- Mixed Scale;
-- Spikes / Noise;
-- Long Time;
-- Stress Raw;
-- pomiary raw renderingu;
-- decyzja, czy LOD jest faktycznie potrzebny.
+Dostępne presety:
 
-## Automatyzacja
+- Small / Sanity — 3 × 1 000, 100 ms;
+- Reference — 60 × 36 000, 100 ms;
+- Overlap — 60 × 36 000;
+- Mixed Scale — 60 × 36 000;
+- Spikes / Noise — 60 × 36 000;
+- Long Time — 10 × 108 000, 100 ms;
+- Stress Raw — 60 × 360 000, 10 ms.
 
-Projekt ma trzy poziomy weryfikacji:
+Renderer nadal działa raw, bez LOD/downsamplingu, zgodnie ze specyfikacją. Widoczny zakres próbek jest ograniczany do viewportu X z małym zapasem.
 
-1. functional C++ — GoogleTest + CTest;
-2. GUI integration — Dear ImGui Test Engine;
-3. manual — wygląd, ergonomia i płynność.
+Pomiary wydajności i decyzja o potrzebie LOD **nie zostały jeszcze wykonane**.
 
-Podstawową ścieżką pozostaje docelowy Windows PC przez CANStatio Test Agent.
+## Reset i preset switching
 
-## Najbliższy krok
+`Test Controls` obsługuje wybór wszystkich presetów oraz pełny Reset.
 
-Najpierw wykonać zaległą weryfikację C1, gdy `CANStatio-ImGui-custom-test` będzie dostępny w Test Agencie. Następnie rozpocząć **C2 — transforms, time axis, grid i app-owned X navigation**.
+Reset:
+
+- Fit X do pełnego datasetu;
+- wszystkie serie visible;
+- brak active;
+- Fit Y każdej serii;
+- cursory A/B hidden;
+- markers cleared;
+- marker counter = 0.
+
+## Testy dodane razem z pełną implementacją
+
+Nowe testowalne komponenty:
+
+- `ChartMath` — transforms, pan/zoom, nice/time ticks, point-to-segment;
+- `InputPolicy` — priorytety modifierów i brak fallbacków;
+- `MarkerModel` — ID, clamp, move, remove, reset;
+- `DataGenerator` — Small specification, determinism i nazwy presetów.
+
+Zachowane są testy `Dataset`, `Series`, `ValuesModel` i `CursorModel`, a GUI smoke suite nadal sprawdza startup, okna, Custom Legend, highlight, plot geometry/mouse-time i Fit X.
+
+## Weryfikacja
+
+### Historyczny baseline
+
+Skopiowana baza przed custom rendererem miała:
+
+```text
+21/21 functional PASS + 19/19 GUI PASS
+```
+
+Nie jest to wynik aktualnej implementacji.
+
+### Aktualna pełna implementacja
+
+**Build: niezweryfikowany w bieżącym przebiegu.**
+
+**Functional: nieuruchomione.**
+
+**GUI integration: nieuruchomione.**
+
+**Manual UX/performance: nieuruchomione.**
+
+Zgodnie z bieżącą instrukcją użytkownika Test Agent nie jest używany, ponieważ obecnie nie działa. Repozytorium Test Agenta nie zostało zmienione.
+
+Istniejący GitHub Windows workflow pozostaje `workflow_dispatch` only; nie został automatycznie uruchomiony przez commit.
+
+## Następny krok
+
+Gdy dostępne będzie środowisko testowe, wykonać pełną walidację bez zmiany zakresu implementacji:
+
+```text
+configure/build
+-> functional
+-> GUI integration
+-> manual UX
+-> Reference / Stress Raw performance
+```
+
+Dopiero wyniki Reference / Stress Raw powinny zdecydować, czy potrzebny jest LOD/downsampling lub dalsza optymalizacja.

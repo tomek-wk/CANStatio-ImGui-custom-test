@@ -2,115 +2,80 @@
 
 ## Cel
 
-Automatyzacja ma wykrywać regresje funkcjonalne eksperymentu Dear ImGui z własną implementacją wykresu bez zastępowania ręcznej oceny wyglądu, ergonomii i UX.
+Automatyzacja chroni semantykę własnego wykresu bez zastępowania ręcznej oceny wyglądu, ergonomii i płynności.
 
-Strategia ma trzy warstwy:
+Warstwy:
 
-1. **functional C++** — logika, matematyka, transformacje, stan i edge-case'y bez GUI;
-2. **GUI integration** — rzeczywiste interakcje Dear ImGui przez Dear ImGui Test Engine;
-3. **manual** — wygląd, czytelność, ergonomia, subiektywna płynność i UX.
-
-Ten dokument jest nadrzędnym źródłem prawdy w zakresie automatycznych testów, ich narzędzi i uruchamiania.
-
-## Zasady wyboru narzędzi
-
-- nie tworzymy osobnej biblioteki `core` tylko dla testów;
-- nie przenosimy FlaUI / UIA3 / xUnit ze starego wxWidgets;
-- nie dodajemy nowej zależności, jeśli istniejące narzędzia rozwiązują problem;
-- małą czystą funkcję lub model wydzielamy tylko wtedy, gdy zapobiega to duplikowaniu algorytmu albo kruchemu testowi GUI i ma sens produkcyjny;
-- matematyka data/screen, hit-test i pan/zoom powinna być testowana funkcyjnie tam, gdzie można ją oddzielić od renderowania.
+1. **functional C++** — logika, matematyka, transformacje, stan i input policy bez GUI;
+2. **GUI integration** — rzeczywiste widgety Dear ImGui i podstawowy stan integracyjny;
+3. **manual** — wygląd, ergonomia, chwytanie narzędzi i performance.
 
 ## Narzędzia
 
-### Functional
-
-Docelowy Windows PC:
+Functional:
 
 ```text
-CMake 4.4.3
-CTest 4.4.3
-GoogleTest 1.18.0
-GCC/G++ 16.2.0
-Ninja 1.13.2
-```
-
-Target:
-
-```text
+GoogleTest + CTest
 canstatio_functional_tests
 ```
 
-GoogleTest jest znajdowany przez `find_package(GTest REQUIRED)`.
-
-### GUI
-
-Framework: **Dear ImGui Test Engine**.
-
-Bazowe wersje:
-
-- Dear ImGui `v1.92.9b`;
-- Dear ImGui Test Engine commit `508a8fc8dacac2f346d353fed31b9bc90ed29adc`.
-
-Aktualny target GUI od C1:
+GUI integration:
 
 ```text
-canstatio_imgui_custom_test
+Dear ImGui Test Engine
+canstatio_imgui_custom_test.exe --run-tests
 ```
 
-Uruchomienie suite:
+GoogleTest jest znajdowany przez `find_package(GTest REQUIRED)`. Dear ImGui Test Engine pozostaje przypięty do commita `508a8fc8dacac2f346d353fed31b9bc90ed29adc`.
 
-```text
-build/canstatio_imgui_custom_test.exe --run-tests
-```
+## Aktualny functional suite
 
-Nie dodajemy OS-level GUI automation bez konkretnej luki, której Dear ImGui Test Engine nie potrafi wiarygodnie sprawdzić.
+Zachowane testy:
 
-## CANStatio Test Agent — podstawowa ścieżka
+- `Dataset::endTimeSeconds()`;
+- `Series::fitViewToData()`;
+- `ValuesModel` — interpolacja, visibility, granice i hover state;
+- `CursorModel` — niezależne A/B, clamp i hide.
 
-CANStatio Test Agent jest podstawowym zdalnym środowiskiem testowym docelowego Windows PC.
+Dodane dla pełnej implementacji custom chart:
 
-Normalny przepływ:
+### `ChartMathTests.cpp`
 
-```text
-configure/build
--> functional
--> GUI
--> manual UX, jeśli zmiana dotyczy interakcji lub wyglądu
-```
+- data -> screen -> data round-trip;
+- kierunek grab-content pan X;
+- zoom X z nieruchomym anchor point pod myszą;
+- minimalny span X;
+- grab-content pan Y;
+- zoom Y z zachowaniem środka;
+- family `1/2/5 × 10^n`;
+- generacja ticków czasu;
+- point-to-segment distance używana przez hit-test.
 
-Repozytorium Test Agenta nie jest modyfikowane przez ten projekt. Może być używane tylko jako kanał komunikacji z docelowym środowiskiem.
+### `InputPolicyTests.cpp`
 
-## GitHub Actions — tylko awaryjny Windows fallback
+- priorytet Shift/Ctrl/Alt dla LMB;
+- plain LMB: cursor/marker drag przed pan X;
+- `Ctrl + RMB` usuwa/hide tylko overlay i nie przechodzi do selection;
+- plain RMB uruchamia selection;
+- wheel: plain X, Alt Y, brak fallbacku dla nieobsługiwanych modifierów.
 
-GitHub Actions nie jest normalną ścieżką testową i nie jest dodatkowym obowiązkowym checkpointem.
+### `MarkerModelTests.cpp`
 
-Używamy go wyłącznie wtedy, gdy docelowy Windows PC lub Test Agent jest niedostępny.
+- sekwencyjne ID;
+- clamp czasu;
+- brak ponownego używania usuniętego ID;
+- move;
+- Reset i powrót licznika do 0.
 
-Workflow:
+### `DataGeneratorTests.cpp`
 
-```text
-.github/workflows/windows-ci.yml
-```
+- parametry Small / Sanity;
+- deterministyczność Small;
+- stabilne nazwy wszystkich presetów.
 
-Jest celowo `workflow_dispatch` only — bez triggerów `push` i `pull_request`.
+## GUI integration suite
 
-Standardowy GitHub-hosted Windows runner nie jest podstawowym środowiskiem GUI. Linux GitHub Actions nie jest częścią bieżącej strategii testowej.
-
-## Historyczny baseline przed migracją
-
-Skopiowana baza projektu miała potwierdzony wynik:
-
-```text
-Test Agent Windows:    21/21 functional PASS
-Test Agent Windows:    19/19 GUI PASS
-GitHub Windows:        21/21 functional PASS — historycznie zweryfikowany fallback
-```
-
-Te wyniki nie są wynikiem własnego renderera.
-
-## C1 — aktualny stan testów
-
-Implementacja C1 zawiera nowy minimalny GUI suite:
+Aktualny smoke suite:
 
 ```text
 custom_chart/startup_windows
@@ -121,157 +86,55 @@ custom_chart/plot_geometry_and_mouse_time
 custom_chart/fit_x
 ```
 
-Stare GUI testy zależne od poprzedniej architektury zostały usunięte zamiast sztucznie utrzymywać ich założenia.
+Suite jest celowo oparty na zachowaniu użytkowym i publicznym stanie testowym, a nie na strukturze renderera.
 
-C1 nie został jeszcze uruchomiony na target Windows. Powód jest operacyjny, nie testowy: ostatni dostępny heartbeat Test Agenta był nieaktualny, a jego dokumentowana lokalna konfiguracja nie zawierała jeszcze `CANStatio-ImGui-custom-test` jako zarejestrowanego projektu.
+Pełna implementacja ma znacznie większy zakres niż aktualny GUI smoke suite. Po uruchomieniu środowiska testowego należy rozszerzyć GUI regression przede wszystkim o rzeczywiste gesty X/Y, RMB selection, cursory i markery. Functional tests już chronią matematykę oraz jawny routing modifierów.
 
-Nie raportujemy więc żadnego PASS/FAIL dla C1.
+## Weryfikacja obecnego kodu
 
-## Functional — elementy zachowane z baseline
+Aktualny kod pełnego custom chart **nie został jeszcze uruchomiony w środowisku testowym**.
 
-Najbardziej prawdopodobne do bezpośredniego zachowania:
+Nie raportujemy PASS/FAIL dla obecnego commita.
 
-- `Dataset::endTimeSeconds()`;
-- `Series::fitViewToData()`;
-- `ValuesModel` — exact sample, interpolacja, hidden/no-hover/outside dataset i edge-case'y;
-- `CursorModel` — start hidden, niezależne A/B, clamp i hide.
+Zgodnie z bieżącą instrukcją użytkownika CANStatio Test Agent nie jest używany, ponieważ obecnie nie działa. Nie wolno traktować historycznych wyników skopiowanego prototypu jako walidacji aktualnego renderera.
 
-Ich wcześniejsze wyniki pozostają historyczne do czasu ponownego uruchomienia po C1.
+## Historyczny baseline
 
-## Plan testów functional
+Przed migracją skopiowany prototyp miał:
 
-### F0 — środowisko + runner
+```text
+Test Agent Windows: 21/21 functional PASS
+Test Agent Windows: 19/19 GUI PASS
+```
 
-Do ponownego potwierdzenia po C1.
+To wyłącznie punkt odniesienia historycznego.
 
-### F1 — Dataset / Series
+## Docelowa sekwencja walidacji
 
-Baseline istnieje; uruchomić ponownie bez zmiany semantyki.
+Gdy środowisko będzie dostępne:
 
-### F2 — transformacja X
+```text
+configure/build
+-> ctest functional
+-> Dear ImGui Test Engine GUI
+-> manual UX
+-> Reference performance
+-> Stress Raw performance
+```
 
-Do dodania w C2:
+Manualnie należy sprawdzić przede wszystkim:
 
-- time -> screen X;
-- screen X -> time;
-- granice plot rect;
-- zoomed/panned ranges;
-- wartości poza viewportem.
+- czy osie i grid są czytelne;
+- czy Halo / Outline nie pogarszają odczytu danych;
+- czy pan/zoom mają właściwy kierunek i szybkość;
+- czy RMB selection jest wygodne przy overlap;
+- czy cursory i markery łatwo złapać;
+- czy Alt-click / Alt-drag threshold jest ergonomiczny;
+- czy Reference jest praktycznie płynny;
+- gdzie Stress Raw ujawnia potrzebę LOD.
 
-### F3 — transformacja Y
+## GitHub Actions fallback
 
-Do dodania w C2/C3:
+`.github/workflows/windows-ci.yml` jest ręcznym `workflow_dispatch` fallbackiem dla Windows build + functional tests. Nie jest automatycznym CI dla push/PR i nie zastępuje GUI/manual testów na docelowym PC.
 
-- raw value -> screen Y dla niezależnego `viewMin/viewMax`;
-- screen Y -> raw value;
-- różne skale serii;
-- edge cases zakresu;
-- wartości poza viewportem.
-
-### F4 — X pan / zoom / Fit X math
-
-Do dodania w C2.
-
-### F5 — Y pan / zoom / Fit Y math
-
-Do dodania lub rozszerzenia w C3.
-
-### F6 — ticki i formatowanie czasu/Y
-
-Do dodania w C2/C3.
-
-### F7 — RMB hit-test math
-
-Do dodania w C3.
-
-### F8 — Values
-
-Model baseline istnieje; ponowna walidacja po podpięciu pod pełny custom X navigation w C4.
-
-### F9 — kursory A/B
-
-State model baseline istnieje. Geometria i interakcje do zbudowania w C5.
-
-### F10 — markery i input priority
-
-Do dodania razem z C6.
-
-### F11 — performance helpers
-
-Dopiero po pełnych presetach, jeśli pojawią się testowalne elementy związane z widocznym zakresem indeksów lub przygotowaniem geometrii.
-
-## Plan GUI integration
-
-Docelowy zestaw ma pokrywać:
-
-- startup i okna pomocnicze;
-- stabilny plot area;
-- Custom Legend visibility i active;
-- Fit X / Fit Y;
-- plain drag / wheel X;
-- Alt drag / wheel Y;
-- RMB selection;
-- Values i crosshair;
-- Halo / Outline mode;
-- cursory A/B;
-- markery;
-- input priority i konflikty modifierów.
-
-Testy GUI powinny sprawdzać semantykę i state, a nie utrwalać niepotrzebnie wewnętrzną strukturę renderera.
-
-## Weryfikacja etapami migracji
-
-### C1
-
-Do wykonania, gdy repozytorium będzie dostępne w Test Agencie:
-
-- configure/build;
-- pełny retained functional suite;
-- 6-testowy C1 GUI smoke suite;
-- manualny start aplikacji i kontrola, czy raw series są widoczne.
-
-### C2
-
-- functional transforms X;
-- tick/time formatting;
-- GUI X pan/zoom/Fit X;
-- manualna ocena osi i gridu.
-
-### C3
-
-- functional Y math i hit-test;
-- GUI active/visibility/Fit Y/Y navigation/RMB;
-- manual Halo/Outline i semantic Y.
-
-### C4
-
-- functional Values;
-- GUI Values/crosshair.
-
-### C5
-
-- functional cursor state + geometry helpers;
-- GUI set/drag/remove + modifier conflicts;
-- manual chwytanie kursora i czytelność etykiet.
-
-### C6
-
-- functional marker state/input threshold;
-- pełny GUI input-priority suite;
-- manual ergonomia markerów.
-
-### C7
-
-- full regression;
-- manual performance run na Reference i Stress Raw;
-- zapis wyników i ewentualna decyzja o LOD.
-
-## Czego automaty nie zastępują
-
-- jakości wizualnej linii i highlightów;
-- czytelności osi i etykiet;
-- praktycznej szerokości obszaru osi Y;
-- czytelności Values i crosshair;
-- kolorów, etykiet i łatwości chwytania cursorów/markerów;
-- subiektywnej ergonomii i płynności;
-- manualnego sprawdzenia zachowania na rzeczywistym docelowym sprzęcie.
+Linux GitHub Actions nie jest częścią projektu.
