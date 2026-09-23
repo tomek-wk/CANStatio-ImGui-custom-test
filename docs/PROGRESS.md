@@ -156,7 +156,7 @@ Nie jest to wynik aktualnej implementacji.
 
 ### Aktualna pełna implementacja — target Windows
 
-Zweryfikowany checkout:
+Zweryfikowany checkout przed poprawką renderingu:
 
 ```text
 branch: main
@@ -205,6 +205,22 @@ build/test-results/functional-tests.xml
 build/test-results/imgui-tests.xml
 ```
 
+### Mitigacja krótkich artefaktów linii — 2026-09-24
+
+Podczas ręcznej obserwacji zgłoszono bardzo krótkie, losowe błyski w obszarze wykresu, prawdopodobnie w pobliżu neutralnego grida. Nie wykazano zależności od datasetu ani interakcji.
+
+Jako pierwszą, minimalną hipotezę diagnostyczną wyłączono wyłącznie teksturowany wariant antyaliasingu linii Dear ImGui (`AntiAliasedLinesUseTex = false`), pozostawiając sam antyaliasing włączony. Ma to ominąć ścieżkę AA zależną od tekstury atlasu i filtrowania backendu/GPU bez zmiany geometrii, danych ani zachowania wykresu.
+
+Po zmianie Test Agent wykonał:
+
+```text
+pull/configure/build: PASS
+functional: 41/41 PASS
+GUI integration: 6/6 PASS
+```
+
+Manualne potwierdzenie, czy błyski zniknęły, **oczekuje**. Jeżeli problem pozostanie, kolejnym krokiem będzie izolacja samego grida i przejście na nieantyaliasowane, pixel-snapped 1 px primitives zamiast dalszych zmian logiki wykresu.
+
 ### Co pozostaje niezweryfikowane
 
 - manualna jakość wizualna osi, grida, linii i highlightów;
@@ -217,7 +233,7 @@ Aktualny GUI suite jest smoke/integration suite i nie obejmuje jeszcze end-to-en
 
 ## Następny krok
 
-Wykonać manualną walidację UX oraz pomiar Reference / Stress Raw. Następnie rozszerzyć GUI regression o najważniejsze rzeczywiste gesty, szczególnie:
+Najpierw ręcznie sprawdzić, czy zmiana sposobu AA usunęła losowe błyski. Następnie wykonać manualną walidację UX oraz pomiar Reference / Stress Raw. Później rozszerzyć GUI regression o najważniejsze rzeczywiste gesty, szczególnie:
 
 ```text
 plain drag / wheel X
