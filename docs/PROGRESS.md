@@ -1,6 +1,6 @@
 # Postęp prac
 
-## Stan na 2026-09-23
+## Stan na 2026-09-24
 
 Normalny branch rozwojowy:
 
@@ -140,7 +140,7 @@ Nowe testowalne komponenty:
 - `MarkerModel` — ID, clamp, move, remove, reset;
 - `DataGenerator` — Small specification, determinism i nazwy presetów.
 
-Zachowane są testy `Dataset`, `Series`, `ValuesModel` i `CursorModel`, a GUI smoke suite nadal sprawdza startup, okna, Custom Legend, highlight, plot geometry/mouse-time i Fit X.
+Zachowane są testy `Dataset`, `Series`, `ValuesModel` i `CursorModel`, a GUI smoke suite sprawdza startup, okna, Custom Legend, highlight, plot geometry/mouse-time i Fit X.
 
 ## Weryfikacja
 
@@ -154,30 +154,78 @@ Skopiowana baza przed custom rendererem miała:
 
 Nie jest to wynik aktualnej implementacji.
 
-### Aktualna pełna implementacja
+### Aktualna pełna implementacja — target Windows
 
-**Build: niezweryfikowany w bieżącym przebiegu.**
+Zweryfikowany checkout:
 
-**Functional: nieuruchomione.**
+```text
+branch: main
+commit: 5f17de5
+working tree: clean
+```
 
-**GUI integration: nieuruchomione.**
+Rejestracja projektu w Test Agencie wykonała pełne configure + build:
 
-**Manual UX/performance: nieuruchomione.**
+```text
+configure: PASS
+build: PASS
+```
 
-Zgodnie z bieżącą instrukcją użytkownika Test Agent nie jest używany, ponieważ obecnie nie działa. Repozytorium Test Agenta nie zostało zmienione.
+Środowisko:
 
-Istniejący GitHub Windows workflow pozostaje `workflow_dispatch` only; nie został automatycznie uruchomiony przez commit.
+```text
+Windows 10 build 19045
+GCC/G++ 16.2.0
+CMake 4.4.3
+CTest 4.4.3
+Ninja 1.13.2
+GoogleTest 1.18.0
+```
+
+Functional suite:
+
+```text
+41/41 PASS
+100% tests passed
+exit code 0
+```
+
+GUI integration suite:
+
+```text
+6/6 PASS
+Tests Result: OK
+exit code 0
+```
+
+JUnit utworzony dla obu suite:
+
+```text
+build/test-results/functional-tests.xml
+build/test-results/imgui-tests.xml
+```
+
+### Co pozostaje niezweryfikowane
+
+- manualna jakość wizualna osi, grida, linii i highlightów;
+- ergonomia rzeczywistych gestów X/Y, RMB, cursorów i markerów;
+- performance Reference;
+- performance Stress Raw;
+- decyzja o potrzebie LOD/downsamplingu.
+
+Aktualny GUI suite jest smoke/integration suite i nie obejmuje jeszcze end-to-end wszystkich gestów zaimplementowanych w C2–C6. Matematyka i polityka inputu są pokryte testami functional.
 
 ## Następny krok
 
-Gdy dostępne będzie środowisko testowe, wykonać pełną walidację bez zmiany zakresu implementacji:
+Wykonać manualną walidację UX oraz pomiar Reference / Stress Raw. Następnie rozszerzyć GUI regression o najważniejsze rzeczywiste gesty, szczególnie:
 
 ```text
-configure/build
--> functional
--> GUI integration
--> manual UX
--> Reference / Stress Raw performance
+plain drag / wheel X
+Alt drag / wheel Y
+RMB selection
+cursor set / drag / hide
+marker create / drag / remove
+modifier conflicts
 ```
 
 Dopiero wyniki Reference / Stress Raw powinny zdecydować, czy potrzebny jest LOD/downsampling lub dalsza optymalizacja.
