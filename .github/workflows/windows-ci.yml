@@ -1,0 +1,89 @@
+name: Windows CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-functional:
+    name: Windows UCRT64 build + functional
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Use LF line endings for checkout
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          release: false
+          update: false
+          cache: true
+
+      - name: Install UCRT64 toolchain
+        shell: msys2 {0}
+        run: |
+          packages=(
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-gtest
+          )
+
+          for attempt in 1 2 3; do
+            echo "MSYS2 package install attempt ${attempt}/3"
+            if pacman --noconfirm -Sy && pacman --noconfirm -S --needed "${packages[@]}"; then
+              exit 0
+            fi
+            if [[ ${attempt} -eq 3 ]]; then
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+
+      - name: Tool versions
+        shell: msys2 {0}
+        run: |
+          g++ --version
+          cmake --version
+          ctest --version
+          ninja --version
+
+      - name: Configure
+        shell: msys2 {0}
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build build
+
+      - name: Functional tests
+        shell: msys2 {0}
+        run: |
+          cd build
+          mkdir -p test-results
+          ctest --output-on-failure --output-junit test-results/functional-tests.xml
+
+      - name: Upload functional test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-functional-test-results
+          path: build/test-results/functional-tests.xml
+          if-no-files-found: error
+          retention-days: 14
