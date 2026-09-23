@@ -81,9 +81,13 @@ bool App::initialize() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
 
-    // Keep line anti-aliasing, but avoid the texture-based AA path. On the target
-    // Windows/OpenGL setup transient flashes were observed around thin grid lines.
-    ImGui::GetStyle().AntiAliasedLinesUseTex = false;
+    // The target Windows/OpenGL setup showed transient colored fragments around
+    // thin chart lines and, after disabling texture-based line AA, at the plot
+    // clip boundary. Disable line AA entirely so line geometry has no fringe
+    // triangles that can intersect the scissor edge.
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.AntiAliasedLinesUseTex = false;
+    style.AntiAliasedLines = false;
 
     if (!ImGui_ImplGlfw_InitForOpenGL(window_, true)) {
         return false;
