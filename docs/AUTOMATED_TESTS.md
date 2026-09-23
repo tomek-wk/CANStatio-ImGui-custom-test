@@ -2,21 +2,15 @@
 
 ## Cel
 
-Automatyzacja ma wykrywać regresje funkcjonalne eksperymentu Dear ImGui / ImPlot bez zastępowania ręcznej oceny wyglądu, ergonomii i UX.
+Automatyzacja ma wykrywać regresje funkcjonalne eksperymentu Dear ImGui z własną implementacją wykresu bez zastępowania ręcznej oceny wyglądu, ergonomii i UX.
 
 Strategia ma trzy warstwy:
 
-1. **functional C++** — logika, matematyka, stan i edge-case'y bez GUI;
-2. **GUI integration** — rzeczywiste interakcje Dear ImGui / ImPlot przez Dear ImGui Test Engine;
+1. **functional C++** — logika, matematyka, transformacje, stan i edge-case'y bez GUI;
+2. **GUI integration** — rzeczywiste interakcje Dear ImGui przez Dear ImGui Test Engine;
 3. **manual** — wygląd, czytelność, ergonomia, subiektywna płynność i UX.
 
 Ten dokument jest nadrzędnym źródłem prawdy w zakresie automatycznych testów, ich narzędzi i uruchamiania.
-
-## Status integracji
-
-Eksperyment automatycznego testowania prowadzony na `feature/imgui-test-engine` został zakończony i zintegrowany do `main` przez PR #1 2026-09-23.
-
-Normalny rozwój projektu odbywa się teraz na `main`. Historyczna merge policy D-043 dotyczyła tego zakończonego brancha i została spełniona jawną zgodą użytkownika przed merge.
 
 ## Zasady wyboru narzędzi
 
@@ -24,13 +18,12 @@ Normalny rozwój projektu odbywa się teraz na `main`. Historyczna merge policy 
 - nie przenosimy FlaUI / UIA3 / xUnit ze starego wxWidgets;
 - nie dodajemy nowej zależności, jeśli istniejące narzędzia rozwiązują problem;
 - najpierw testujemy istniejący produkcyjny interfejs;
-- małą czystą funkcję lub model wydzielamy tylko wtedy, gdy zapobiega to duplikowaniu algorytmu albo kruchemu testowi GUI i ma sens produkcyjny.
+- małą czystą funkcję lub model wydzielamy tylko wtedy, gdy zapobiega to duplikowaniu algorytmu albo kruchemu testowi GUI i ma sens produkcyjny;
+- matematyka data/screen, hit-test i pan/zoom powinna być testowana funkcyjnie tam, gdzie można ją oddzielić od samego renderowania.
 
-`ValuesModel` i `CursorModel` są przykładami małych produkcyjnych modeli współdzielonych przez aplikację i testy.
+## Narzędzia
 
-# Narzędzia
-
-## Functional
+### Functional
 
 Docelowy Windows PC:
 
@@ -42,21 +35,9 @@ GCC/G++ 16.2.0
 Ninja 1.13.2
 ```
 
-Target:
-
-```text
-canstatio_functional_tests
-```
-
-JUnit:
-
-```text
-build/test-results/functional-tests.xml
-```
-
 GoogleTest jest znajdowany przez `find_package(GTest REQUIRED)`; repo go nie pobiera.
 
-## GUI
+### GUI
 
 Framework: **Dear ImGui Test Engine**.
 
@@ -65,25 +46,13 @@ Bazowe wersje:
 - Dear ImGui `v1.92.9b`;
 - Dear ImGui Test Engine commit `508a8fc8dacac2f346d353fed31b9bc90ed29adc`.
 
-Tryby lokalne:
-
-```text
-canstatio_implot_test.exe --run-tests
-canstatio_implot_test.exe --run-tests <filter>
-canstatio_implot_test.exe --show-test-ui
-```
-
-JUnit GUI:
-
-```text
-build/test-results/imgui-tests.xml
-```
+Tryby i nazwy executable mogą ulec zmianie podczas etapu C1. Dokument nie utrwala nazw skopiowanego targetu jako części nowej architektury.
 
 Nie dodajemy OS-level GUI automation bez konkretnej luki, której Dear ImGui Test Engine nie potrafi wiarygodnie sprawdzić.
 
-# CANStatio Test Agent — podstawowa ścieżka
+## CANStatio Test Agent — podstawowa ścieżka
 
-CANStatio Test Agent `0.7` jest podstawowym zdalnym środowiskiem testowym docelowego Windows PC.
+CANStatio Test Agent jest podstawowym zdalnym środowiskiem testowym docelowego Windows PC.
 
 Normalny przepływ:
 
@@ -94,13 +63,13 @@ configure/build
 -> manual UX, jeśli zmiana dotyczy interakcji lub wyglądu
 ```
 
-Agent udostępnia bounded actions, w tym `test` z `suite=functional` i `suite=gui`; nie udostępnia ogólnego remote shell.
+Repozytorium Test Agenta nie jest modyfikowane przez ten projekt. Może być używane tylko jako kanał komunikacji z docelowym środowiskiem.
 
-# GitHub Actions — tylko awaryjny Windows fallback
+## GitHub Actions — tylko awaryjny Windows fallback
 
-GitHub Actions nie jest normalną ścieżką testową i nie jest dodatkowym checkpointem.
+GitHub Actions nie jest normalną ścieżką testową i nie jest dodatkowym obowiązkowym checkpointem.
 
-Używamy go **wyłącznie wtedy, gdy docelowy Windows PC lub Test Agent jest niedostępny**.
+Używamy go wyłącznie wtedy, gdy docelowy Windows PC lub Test Agent jest niedostępny.
 
 Workflow:
 
@@ -110,86 +79,234 @@ Workflow:
 
 Jest celowo `workflow_dispatch` only — bez triggerów `push` i `pull_request`.
 
+Standardowy GitHub-hosted Windows runner nie jest podstawowym środowiskiem GUI. Nie dokładamy alternatywnych backendów renderingu tylko po to, aby wymusić testy GUI na runnerze.
+
+Linux GitHub Actions nie jest częścią bieżącej strategii testowej.
+
+## Historyczny baseline przed migracją
+
+Skopiowana baza projektu miała potwierdzony wynik:
+
+```text
+Test Agent Windows:    21/21 functional PASS
+Test Agent Windows:    19/19 GUI PASS
+GitHub Windows:        21/21 functional PASS — historycznie zweryfikowany fallback
+```
+
+Te wyniki nie są wynikiem własnego renderera. Służą wyłącznie jako punkt odniesienia dla zachowań, które warto zachować.
+
+Po migracji test dotkniętego obszaru liczy się jako zweryfikowany dopiero po ponownym uruchomieniu przeciwko custom chart.
+
+## Co można zachować z istniejących testów
+
+Najbardziej prawdopodobne do bezpośredniego zachowania lub małej korekty:
+
+- `Dataset::endTimeSeconds()`;
+- `Series::fitViewToData()`;
+- `ValuesModel` — exact sample, interpolacja, hidden/no-hover/outside dataset i edge-case'y;
+- `CursorModel` — start hidden, niezależne A/B, clamp i hide.
+
+GUI testy zależne od starego plot widgetu mogą wymagać przepisania, nawet jeśli ich semantyka użytkowa pozostaje taka sama.
+
+## Plan testów functional
+
+### F0 — środowisko + runner
+
+Status: istniejąca infrastruktura dostępna, do ponownego potwierdzenia po zmianie targetów w C1.
+
+### F1 — Dataset / Series
+
+Status: baseline istnieje.
+
 Zakres:
 
-```text
-checkout
--> MSYS2 UCRT64
--> configure
--> pełny build obu executable
--> functional CTest
--> JUnit artifact
-```
+- `endTimeSeconds()`;
+- Fit Y margin;
+- constant-value edge cases.
 
-Artifact:
+### F2 — transformacja X
 
-```text
-windows-functional-test-results
-```
+Do dodania razem z własnym rendererem.
 
-Standardowy GitHub-hosted Windows runner nie uruchamia GUI suite. Eksperymentalny start GUI zakończył się błędem GLFW `65542` z powodu braku użytecznego WGL/OpenGL. Nie dokładamy ANGLE/OSMesa tylko po to, aby wymusić GUI na runnerze.
+Zakres:
 
-## Linux GitHub Actions
+- time -> screen X;
+- screen X -> time;
+- granice plot rect;
+- zoomed/panned ranges;
+- wartości poza viewportem.
 
-Linux GitHub Actions był jednorazowym eksperymentem przenośności. Workflow został usunięty i Linux CI **nie jest częścią bieżącej strategii testowej**. Nie należy go przywracać bez nowej jawnej decyzji użytkownika.
+### F3 — transformacja Y
 
-# Stan zweryfikowany 2026-09-23
+Do dodania.
 
-## Functional
+Zakres:
 
-```text
-Test Agent Windows:    21/21 PASS
-GitHub Windows:        21/21 PASS — historycznie zweryfikowany fallback
-```
+- raw value -> screen Y dla niezależnego `viewMin/viewMax`;
+- screen Y -> raw value;
+- różne skale serii;
+- constant/range edge cases;
+- wartości poza viewportem.
 
-Pokrycie obejmuje `Dataset`, `Series::fitViewToData`, `ValuesModel` i `CursorModel`.
+### F4 — X pan / zoom / Fit X math
 
-## GUI integration
+Do dodania.
 
-```text
-Test Agent Windows:    19/19 PASS
-GitHub Windows:        niewykonywane — brak użytecznego WGL/OpenGL
-```
+Zakres:
 
-Zestaw obejmuje startup, okna, legendę, active/hidden-active, Halo/Outline mode, Fit X/Y, X navigation, `Alt` Y navigation, Values/crosshair, RMB hit-test, kursory A/B oraz stabilność geometrii plot area przy zmianach active Y.
+- zachowanie span przy pan;
+- zmiana span przy wheel zoom;
+- anchoring zgodny z przyjętą semantyką;
+- Fit X.
 
-Testy kursora:
+### F5 — Y pan / zoom / Fit Y math
 
-```text
-cursors/set_a_and_b
-cursors/plain_drag_and_ctrl_rmb_remove
-cursors/alt_drag_over_cursor_pans_y
-```
+Do dodania lub rozszerzenia.
 
-Trzeci test nie oznacza specjalnej ścieżki implementacyjnej dla kursora. Chroni ogólną zasadę: `Alt + drag` jest pan Y; kursor przy `Alt` nie reaguje.
+Zakres:
 
-Test layoutu:
+- pan aktywnej serii bez zmiany X;
+- zoom aktywnej serii bez zmiany X;
+- minimalny bezpieczny span;
+- niezależność Y pomiędzy seriami.
 
-```text
-canstatio/stable_plot_area_active_y_axis
-```
+### F6 — ticki i formatowanie czasu/Y
 
-Sprawdza niezmienne `plotPos`/`plotSize` dla braku active, aktywacji serii, zmiany na serię o innej skali Y i ponownego wyłączenia active.
+Do dodania.
 
-## Plan functional F0–F8
+Zakres:
 
-- **F0 środowisko + runner — zakończony**;
-- **F1 Dataset / Series — zakończony dla obecnego modelu**;
-- **F2 Values / interpolacja — zakończony**;
-- **F3 mapowanie Y / Fit Y — częściowo pokryte; dalszy refaktor tylko przy realnej potrzebie**;
-- **F4 pan/zoom Y math — warunkowo później**;
-- **F5 RMB hit-test math — warunkowo później**;
-- **F6 time ticks / formatting — przyszły kandydat**;
-- **F7 kursory A/B — zakończony dla aktualnej implementacji**;
-- **F8 markery/input priority — następny etap; testy razem z implementacją**.
+- wybór czytelnego kroku;
+- sekundy/minuty/godziny;
+- format milisekund;
+- stabilne wyniki przy nietypowych zakresach.
+
+### F7 — RMB hit-test math
+
+Do dodania lub przeniesienia.
+
+Zakres:
+
+- point-to-segment w screen-space;
+- najbliższa seria wygrywa;
+- hidden series pomijana;
+- empty-space clears active;
+- duży zoom-out i wiele próbek w jednym pikselu.
+
+### F8 — Values
+
+Status: model baseline istnieje, do ponownego potwierdzenia po podpięciu pod własny mouse-time transform.
+
+### F9 — kursory A/B
+
+Status: state model baseline istnieje.
+
+Do dodania/przepisania:
+
+- screen hit-test kursora;
+- drag -> time;
+- clamp;
+- kolizje wejścia.
+
+### F10 — markery i input priority
+
+Do dodania razem z implementacją.
+
+Zakres:
+
+- numeracja;
+- add/remove/drag;
+- Alt-click threshold;
+- Alt-drag Y pan;
+- konflikty cursor/marker.
+
+### F11 — performance helpers
+
+Dopiero po implementacji pełnych presetów, jeśli wydzielimy testowalne elementy związane z widocznym zakresem indeksów lub przygotowaniem geometrii.
+
+## Plan GUI integration
+
+Minimalny zestaw ma docelowo pokrywać:
+
+- startup i okna pomocnicze;
+- stabilny plot area;
+- Custom Legend visibility i active;
+- Fit X / Fit Y;
+- plain drag / wheel X;
+- Alt drag / wheel Y;
+- RMB selection;
+- Values i crosshair;
+- Halo / Outline mode;
+- cursory A/B;
+- markery;
+- input priority i konflikty modifierów.
+
+Testy GUI powinny sprawdzać semantykę i state, a nie utrwalać niepotrzebnie wewnętrzną strukturę renderera.
+
+## Weryfikacja etapami migracji
+
+### C1
+
+Wymagane:
+
+- configure/build;
+- minimalny GUI smoke;
+- potwierdzenie, że aplikacja działa bez starego backendu wykresu.
+
+### C2
+
+Wymagane:
+
+- functional transforms X;
+- tick/time formatting;
+- GUI X pan/zoom/Fit X;
+- manualna ocena osi i gridu.
+
+### C3
+
+Wymagane:
+
+- functional Y math i hit-test;
+- GUI active/visibility/Fit Y/Y navigation/RMB;
+- manual Halo/Outline i semantic Y.
+
+### C4
+
+Wymagane:
+
+- functional Values;
+- GUI Values/crosshair.
+
+### C5
+
+Wymagane:
+
+- functional cursor state + geometry helpers;
+- GUI set/drag/remove + modifier conflicts;
+- manual chwytanie kursora i czytelność etykiet.
+
+### C6
+
+Wymagane:
+
+- functional marker state/input threshold;
+- pełny GUI input-priority suite;
+- manual ergonomia markerów.
+
+### C7
+
+Wymagane:
+
+- full regression;
+- manual performance run na Reference i Stress Raw;
+- zapis wyników i ewentualna decyzja o LOD.
 
 ## Czego automaty nie zastępują
 
-- jakości wizualnej Halo / Outline i ich joinów;
-- praktycznej szerokości/czytelności semantic Y gutter;
+- jakości wizualnej linii i highlightów;
+- czytelności osi i etykiet;
+- praktycznej szerokości obszaru osi Y;
 - czytelności Values i crosshair;
-- kolorów, etykiet i łatwości chwytania kursorów A/B;
+- kolorów, etykiet i łatwości chwytania cursorów/markerów;
 - subiektywnej ergonomii i płynności;
 - manualnego sprawdzenia zachowania na rzeczywistym docelowym sprzęcie.
-
-Ostatni cleanup Y-gutter i Halo/Outline został ręcznie zaakceptowany przez użytkownika po przejściu automatycznych testów.

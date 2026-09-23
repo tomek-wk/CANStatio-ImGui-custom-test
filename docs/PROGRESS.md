@@ -8,154 +8,209 @@ Normalny branch rozwojowy:
 main
 ```
 
-Eksperyment infrastrukturalny `feature/imgui-test-engine` został zakończony i zintegrowany do `main` przez PR #1. Merge wykonano jako squash, aby zachować liniowy charakter głównej historii i potraktować cały eksperyment jako jeden logiczny checkpoint.
+Repozytorium zostało utworzone jako niezależny wariant eksperymentalny dla Dear ImGui z własną implementacją wykresu.
 
-Projekt ma trzy poziomy weryfikacji:
+Początkowo skopiowano do niego działającą bazę wcześniejszego prototypu, aby zachować sprawdzone modele danych, zachowania użytkowe i testy jako materiał referencyjny.
 
-1. functional C++ — GoogleTest + CTest;
-2. GUI integration — Dear ImGui Test Engine;
-3. manual — wygląd, czytelność, ergonomia i subiektywna płynność.
+Na tym etapie skopiowany renderer i jego rozwiązania techniczne są traktowane jako **legacy baseline**, a nie jako architektura docelowa.
 
-Podstawową ścieżką automatycznej weryfikacji jest **docelowy Windows PC przez CANStatio Test Agent**. GitHub-hosted Windows pozostaje wyłącznie ręcznym fallbackiem na sytuację, gdy target PC/Test Agent jest niedostępny. Linux GitHub Actions był eksperymentem i został usunięty z projektu.
+## Reset dokumentacji — zakończony
 
-## Aktualny wynik automatyczny
+Dokumentacja została przepisana pod wariant własnego wykresu:
 
-Ostatnia pełna weryfikacja kodu przed integracją do `main`:
+- `README.md` opisuje nowy cel repozytorium;
+- `AGENTS.md` definiuje pracę wyłącznie w tym repozytorium oraz nową odpowiedzialność renderera;
+- `docs/PROJECT_SPEC.md` opisuje funkcjonalność bez zależności od zewnętrznego plot widgetu;
+- `docs/DECISIONS.md` został zresetowany do decyzji właściwych dla custom chart;
+- `docs/AUTOMATED_TESTS.md` opisuje plan ponownej walidacji po migracji;
+- ten plik rozdziela legacy baseline od faktycznie przeniesionej funkcjonalności.
+
+## Docelowa architektura
+
+Dear ImGui pozostaje frameworkiem GUI.
+
+Własna warstwa wykresu ma przejąć:
+
+- plot area i layout;
+- data/screen transforms;
+- render serii;
+- clipping;
+- osie, ticki, etykiety i grid;
+- pan/zoom X;
+- pan/zoom Y aktywnej serii;
+- hit-test serii;
+- input routing;
+- active highlight;
+- crosshair;
+- cursory A/B;
+- markery.
+
+Nie zakładamy wspólnej sztucznej przestrzeni Y. Każda seria ma być mapowana bezpośrednio ze swojego `viewMin..viewMax` do pikseli plot area.
+
+## Funkcjonalność do zachowania
+
+Skopiowany baseline dostarcza zachowania, które mają zostać odtworzone w custom rendererze, jeśli nie zostaną później jawnie zmienione:
+
+- regularny wspólny X;
+- niezależny `viewMin/viewMax` każdej serii;
+- Fit X i Fit Y;
+- active series;
+- visibility serii;
+- Custom Legend;
+- semantic Y aktywnej serii;
+- neutralny i kolorowy grid;
+- plain drag / wheel dla X;
+- `Alt + drag` / `Alt + wheel` dla aktywnego Y;
+- RMB hit-test serii;
+- Values z interpolacją;
+- crosshair;
+- Halo / Outline;
+- kursory A/B;
+- docelowe markery i input priority.
+
+Nie zachowujemy automatycznie rozwiązań technicznych, które były potrzebne tylko przez poprzedni renderer.
+
+## Historyczna weryfikacja baseline
+
+Skopiowana baza miała wcześniej potwierdzony wynik:
 
 ```text
 Test Agent Windows: 21/21 functional PASS + 19/19 GUI PASS
 ```
 
-Po tej weryfikacji przed merge zmieniała się wyłącznie dokumentacja. Po merge bieżące zmiany porządkowe na `main` również dotyczą wyłącznie dokumentacji.
+Ten wynik jest punktem odniesienia dla zachowania sprzed migracji. Nie jest wynikiem custom renderera.
 
-Awaryjny GitHub-hosted Windows został wcześniej zweryfikowany jako pełny build + `21/21 functional PASS`, ale nie jest normalną ścieżką testową.
+Po rozpoczęciu migracji każdy dotknięty obszar musi zostać ponownie zweryfikowany.
 
-## Functional — 21 testów
+## Co można zachować bez przepisywania od zera
 
-Pokrycie:
+Najbardziej prawdopodobne elementy do ponownego użycia:
 
-- `Dataset::endTimeSeconds()`;
-- `Series::fitViewToData()`;
-- `ValuesModel` — exact sample, interpolacja, granice, hidden/no-hover/outside dataset i edge-case'y;
-- `CursorModel` — start hidden, niezależne A/B, clamp do datasetu i niezależne hide.
+- `Dataset` i `Series`;
+- `DataGenerator`;
+- `ValuesModel`;
+- `CursorModel` jako semantyczny state;
+- deterministic colors;
+- część formatowania czasu i ticków;
+- część matematyki RMB hit-test po odseparowaniu od starego systemu współrzędnych;
+- część testów funkcyjnych modeli.
 
-## GUI integration — 19 testów
+Każdy z tych elementów należy ocenić przed pozostawieniem. Sam fakt istnienia w baseline nie wystarcza.
 
-Zestaw obejmuje startup, okna, legendę, active/hidden-active, Halo/Outline mode, Fit X/Y, X navigation, `Alt` Y navigation, Values/crosshair, RMB hit-test, kursory A/B oraz stabilność geometrii plot area przy zmianach active Y.
+## Plan migracji
 
-Testy kursora:
+### C0 — dokumentacja i wymagania
 
-```text
-cursors/set_a_and_b
-cursors/plain_drag_and_ctrl_rmb_remove
-cursors/alt_drag_over_cursor_pans_y
-```
+**Status: zakończony.**
 
-`Alt + drag` nie ma specjalnej obsługi kursora — test tylko chroni ogólną zasadę, że przy `Alt` kursor nie reaguje, a aktywne Y jest przesuwane.
+- zebrano aktualną i planowaną funkcjonalność;
+- usunięto z dokumentacji założenia zależne od poprzedniego renderera;
+- zdefiniowano app-owned plot, transforms, input i overlays;
+- ustalono nowe źródła prawdy.
 
-Test layoutu:
+### C1 — minimalny własny plot i build
 
-```text
-canstatio/stable_plot_area_active_y_axis
-```
+**Status: następny etap.**
 
-sprawdza stałe `plotPos`/`plotSize` przy braku active, aktywacji, zmianie active na serię o innej skali i ponownym wyłączeniu active.
+Cel:
 
-## Stage 6A — kursory A/B
+- usunąć zależność starego renderera z konfiguracji projektu;
+- zmienić nazwę projektu/targetu/executable na wariant custom;
+- uruchomić aplikację z Dear ImGui + GLFW + OpenGL bez starego backendu wykresu;
+- utworzyć własny plot rectangle;
+- narysować co najmniej jedną serię przez własną geometrię screen-space i clipping.
 
-**Zaimplementowany, automatycznie zweryfikowany i ręcznie zaakceptowany.**
+Na końcu: build + minimalny GUI smoke test.
 
-- dokładnie dwa kursory `A` i `B`;
-- app-owned time state w `CursorModel`;
-- render/drag przez publiczne `ImPlot::DragLineX`;
-- `Shift + LMB` — ustaw/przenieś A;
-- `Ctrl + LMB` — ustaw/przenieś B;
-- plain LMB na kursorze — drag;
-- `Ctrl + RMB` przy kursorze — hide;
-- clamp czasu do `0..dataset.endTimeSeconds()`;
-- dwa osobne kolory i etykiety A/B;
-- `Alt + drag` jest zwykłym pan Y i nie przeciąga kursora.
+### C2 — transforms, osie, grid i X navigation
 
-Nie zaimplementowano osobnego panelu/wyświetlania `B-A`.
+Cel:
 
-## Stabilizacja layoutu Y
+- wspólny system data/screen;
+- własna oś czasu;
+- X tick generation;
+- neutralny grid;
+- pan X;
+- zoom X;
+- Fit X;
+- stabilny plot layout.
 
-Naprawiono stary problem zmiany szerokości plot area podczas aktywacji/dezaktywacji serii.
+### C3 — niezależny Y i active series
 
-Aktualne rozwiązanie:
+Cel:
 
-- natywne dekoracje Y ImPlot są wyłączone;
-- aplikacja stale rezerwuje lewy semantyczny gutter Y;
-- jego szerokość wynika z fontu oraz stałego referencyjnego budżetu etykiety, a nie z aktualnych wartości serii;
-- bez active series gutter jest pusty, ale nadal zajmuje tę samą szerokość;
-- tick marks i liczby aktywnej serii są rysowane przez publiczny ImGui DrawList;
-- fizyczna oś ImPlot pozostaje `0..1`.
+- bezpośrednie mapowanie każdej serii z jej własnego `viewMin/viewMax`;
+- semantic Y aktywnej serii;
+- kolorowy grid;
+- Fit Y;
+- `Alt + drag` / `Alt + wheel`;
+- RMB hit-test;
+- Custom Legend;
+- Halo / Outline.
 
-Automatyczna regresja potwierdza stałą geometrię plot area. Użytkownik ręcznie zaakceptował końcowy wygląd i zachowanie.
+### C4 — Values i crosshair
 
-## Halo / Outline — poprawa łączeń
+Cel:
 
-Stary wariant używał drugiego grubego `ImPlot::PlotLineG`, co przy załamaniach tworzyło szczeliny lub spłaszczenia.
+- wspólny mouse time z własnego plot transform;
+- Values z istniejącą interpolacją;
+- crosshair niezależny od Values.
 
-Aktualne rozwiązanie:
+### C5 — kursory A/B
 
-- właściwa linia active nadal jest rysowana przez ImPlot i ma 1.5 px;
-- Halo 7 px / alpha ~0.22 i Outline 5 px / alpha ~0.65 są rysowane jako jedna screen-space polyline przez publiczny `ImDrawList::AddPolyline`;
-- overlay używa tylko zakresu X potrzebnego do bieżącego widoku plus zapas przy krawędziach;
-- overlay jest clippingowany do plot area;
-- nie wpływa na legendę, Fit ani hit-test.
+Cel:
 
-Zmiana przeszła build + pełny GUI suite i została ręcznie zaakceptowana wizualnie.
+- zachować `CursorModel` jeśli nadal pasuje;
+- własny render, hit-test i drag;
+- Shift/Ctrl set;
+- plain drag;
+- Ctrl+RMB hide;
+- clamp do datasetu.
 
-## GitHub Actions — awaryjny Windows fallback
+### C6 — markery i pełny input priority
 
-Jedyny bieżący workflow:
+Cel:
 
-```text
-.github/workflows/windows-ci.yml
-```
+- numerowane markery;
+- Alt-click vs Alt-drag threshold;
+- plain drag markera;
+- Ctrl+RMB remove;
+- kolizje z cursorami;
+- pełne testy priorytetów gestów.
 
-Zasada:
+### C7 — pełne presety i wydajność
 
-```text
-Test Agent dostępny     -> użyj Test Agenta, nie GitHub Actions
-Test Agent niedostępny  -> można ręcznie uruchomić GitHub Windows fallback
-```
+Cel:
 
-Workflow ma tylko `workflow_dispatch`; brak automatycznych triggerów push/PR.
+- Reference;
+- Overlap;
+- Mixed Scale;
+- Spikes / Noise;
+- Long Time;
+- Stress Raw;
+- pomiary raw renderingu;
+- decyzja, czy LOD jest faktycznie potrzebny.
 
-GUI na hostowanym Windows nie jest wykonywane z powodu braku użytecznego WGL/OpenGL w standardowym runnerze.
+## Automatyzacja
 
-## Stan etapów aplikacji
+Projekt nadal ma trzy poziomy weryfikacji:
 
-- **Etap 1 — dataset/render:** zaimplementowany;
-- **Etap 2 — niezależny Y:** zaimplementowany, z ustabilizowanym semantic-Y gutter;
-- **Etap 3 — X/time axis:** zaimplementowany;
-- **Etap 4 — selection / legend:** zaimplementowany;
-- **Etap 5 — Values / crosshair:** zaimplementowany;
-- **Etap 6A — A/B cursors:** zakończony;
-- **Etap 6B — markery / input priority:** jeszcze niezaimplementowany.
+1. functional C++ — GoogleTest + CTest;
+2. GUI integration — Dear ImGui Test Engine;
+3. manual — wygląd, ergonomia i płynność.
 
-## Nadal niezaimplementowane
+Podstawową ścieżką jest docelowy Windows PC przez CANStatio Test Agent.
 
-- pełne presety Reference / Overlap / Mixed Scale / Spikes / Long Time / Stress Raw;
-- minor grid X;
-- markery;
-- `Alt-click` marker vs `Alt-drag` Y threshold i pozostałe input-priority conflicts;
-- pełny Reset / preset switching;
-- testy wydajności docelowych presetów.
+GitHub-hosted Windows pozostaje wyłącznie ręcznym fallbackiem, gdy target PC/Test Agent jest niedostępny.
+
+## Nadal niezaimplementowane w custom rendererze
+
+Na moment resetu dokumentacji **cała warstwa custom chart jest jeszcze do wykonania**.
+
+Skopiowany baseline może nadal uruchamiać się i przechodzić swoje stare testy, ale nie należy tego raportować jako postępu własnego renderera.
 
 ## Najbliższy krok
 
-Rozpocząć planowanie **Stage 6B — markery** na `main`.
+Rozpocząć **C1 — minimalny własny plot i build** na `main`.
 
-Docelowa koncepcja pozostaje:
-
-- `Alt + LMB` click — utworzenie markera;
-- `Alt + drag` — pan Y;
-- próg ruchu około 4–5 px rozstrzyga click vs drag;
-- plain LMB na istniejącym markerze — drag;
-- `Ctrl + RMB` — remove;
-- numeracja 0,1,2... bez ponownego używania numerów do pełnego Reset.
-
-Przed implementacją należy jeszcze doprecyzować routing inputu markerów względem kursora i natywnego X, ale bez tworzenia specjalnej semantyki dla `Alt + drag` nad kursorem.
+Pierwszy checkpoint powinien być celowo mały: aplikacja bez starego backendu wykresu, własny prostokąt plot area, podstawowy clipping i jedna lub kilka linii danych rysowanych w screen-space. Dopiero po takim działającym fundamencie należy przenosić osie i interakcje.
