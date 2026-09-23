@@ -18,7 +18,7 @@ if errorlevel 1 goto :error
 
 echo.
 echo === Run ===
-build\canstatio_implot_test.exe
+build\canstatio_imgui_custom_test.exe
 exit /b %errorlevel%
 
 :error

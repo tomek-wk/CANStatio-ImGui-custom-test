@@ -10,7 +10,6 @@ void TestControls::draw(Dataset& dataset,
                         ActiveHighlightMode& activeHighlightMode,
                         double& xMin,
                         double& xMax,
-                        bool& showNativeLegend,
                         bool& showCustomLegend,
                         bool& showValues,
                         bool& showCrosshair) {
@@ -23,6 +22,10 @@ void TestControls::draw(Dataset& dataset,
 
     ImGui::Text("FPS: %.1f", fps);
     ImGui::Text("Frame: %.2f ms", frameMs);
+    ImGui::Separator();
+
+    ImGui::TextUnformatted("Renderer: custom Dear ImGui draw list");
+    ImGui::TextUnformatted("Stage: C1 / minimal custom plot");
     ImGui::Separator();
 
     ImGui::TextUnformatted("Preset: Small / Sanity");
@@ -74,19 +77,13 @@ void TestControls::draw(Dataset& dataset,
     ImGui::TextUnformatted("Windows / overlays");
     ImGui::Checkbox("Values", &showValues);
     ImGui::Checkbox("Crosshair", &showCrosshair);
-    ImGui::Checkbox("Native ImPlot Legend", &showNativeLegend);
     ImGui::Checkbox("Custom Legend", &showCustomLegend);
 
     ImGui::Separator();
-    ImGui::TextDisabled("Shift + LMB: set cursor A");
-    ImGui::TextDisabled("Ctrl + LMB: set cursor B");
-    ImGui::TextDisabled("LMB drag cursor: move A/B");
-    ImGui::TextDisabled("Ctrl + RMB cursor: hide A/B");
-    ImGui::TextDisabled("RMB near a line: toggle active");
-    ImGui::TextDisabled("RMB outside lines: clear active");
-    ImGui::TextDisabled("Alt + drag: pan active Y");
-    ImGui::TextDisabled("Alt + wheel: zoom active Y");
-    ImGui::TextDisabled("Plain drag / wheel: native X");
+    ImGui::TextDisabled("C2: plain drag / wheel -> X pan / zoom");
+    ImGui::TextDisabled("C3: RMB selection and Alt Y navigation");
+    ImGui::TextDisabled("C5: cursors A/B");
+    ImGui::TextDisabled("C6: markers and full input priority");
 
     ImGui::End();
 }

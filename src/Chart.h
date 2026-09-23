@@ -2,7 +2,6 @@
 
 #include <cstddef>
 
-class CursorModel;
 struct Dataset;
 
 enum class ActiveHighlightMode {
@@ -30,9 +29,7 @@ public:
                      ActiveHighlightMode activeHighlightMode,
                      double& xMin,
                      double& xMax,
-                     bool showNativeLegend,
                      bool showCrosshair,
                      ChartMouseState& mouseState,
-                     ChartLayoutState& layoutState,
-                     CursorModel& cursorModel);
+                     ChartLayoutState& layoutState);
 };

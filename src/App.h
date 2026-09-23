@@ -35,7 +35,6 @@ private:
     ActiveHighlightMode activeHighlightMode_ = ActiveHighlightMode::Halo;
     double xMin_ = 0.0;
     double xMax_ = 0.0;
-    bool showNativeLegend_ = true;
     bool showCustomLegend_ = true;
     bool showValues_ = true;
     bool showCrosshair_ = true;

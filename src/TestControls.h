@@ -12,7 +12,6 @@ public:
                      ActiveHighlightMode& activeHighlightMode,
                      double& xMin,
                      double& xMax,
-                     bool& showNativeLegend,
                      bool& showCustomLegend,
                      bool& showValues,
                      bool& showCrosshair);

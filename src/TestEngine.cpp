@@ -11,10 +11,6 @@
 #include <imgui_test_engine/imgui_te_ui.h>
 
 void RegisterGuiTests(ImGuiTestEngine* engine, const GuiTestAccess& access);
-void RegisterNavigationTests(ImGuiTestEngine* engine, const GuiTestAccess& access);
-void RegisterSelectionTests(ImGuiTestEngine* engine, const GuiTestAccess& access);
-void RegisterValuesTests(ImGuiTestEngine* engine, const GuiTestAccess& access);
-void RegisterCursorTests(ImGuiTestEngine* engine, const GuiTestAccess& access);
 
 bool TestEngine::initialize(bool runTests,
                             bool showUi,
@@ -67,10 +63,6 @@ bool TestEngine::initialize(bool runTests,
     ImGuiTestEngine_InstallDefaultCrashHandler();
 
     RegisterGuiTests(engine_, access);
-    RegisterNavigationTests(engine_, access);
-    RegisterSelectionTests(engine_, access);
-    RegisterValuesTests(engine_, access);
-    RegisterCursorTests(engine_, access);
 
     if (runTests_) {
         const char* filterText = filter.empty() ? nullptr : filter.c_str();

@@ -11,7 +11,6 @@
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <implot.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 
@@ -62,7 +61,11 @@ bool App::initialize() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window_ = glfwCreateWindow(kInitialWidth, kInitialHeight, "CANStatio ImPlot Test", nullptr, nullptr);
+    window_ = glfwCreateWindow(kInitialWidth,
+                               kInitialHeight,
+                               "CANStatio ImGui Custom Chart Test",
+                               nullptr,
+                               nullptr);
     if (window_ == nullptr) {
         return false;
     }
@@ -72,7 +75,6 @@ bool App::initialize() {
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImPlot::CreateContext();
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -96,7 +98,6 @@ bool App::initialize() {
         .activeHighlightMode = &activeHighlightMode_,
         .xMin = &xMin_,
         .xMax = &xMax_,
-        .showNativeLegend = &showNativeLegend_,
         .showCustomLegend = &showCustomLegend_,
         .showValues = &showValues_,
         .showCrosshair = &showCrosshair_,
@@ -122,10 +123,6 @@ void App::shutdown() {
     if (ImGui::GetCurrentContext() != nullptr) {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
-
-        if (ImPlot::GetCurrentContext() != nullptr) {
-            ImPlot::DestroyContext();
-        }
         ImGui::DestroyContext();
     }
 
@@ -151,17 +148,14 @@ void App::frame() {
                 activeHighlightMode_,
                 xMin_,
                 xMax_,
-                showNativeLegend_,
                 showCrosshair_,
                 chartMouseState_,
-                chartLayoutState_,
-                cursorModel_);
+                chartLayoutState_);
     TestControls::draw(dataset_,
                        activeSeriesIndex_,
                        activeHighlightMode_,
                        xMin_,
                        xMax_,
-                       showNativeLegend_,
                        showCustomLegend_,
                        showValues_,
                        showCrosshair_);

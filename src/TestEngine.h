@@ -16,7 +16,6 @@ struct GuiTestAccess {
     ActiveHighlightMode* activeHighlightMode = nullptr;
     double* xMin = nullptr;
     double* xMax = nullptr;
-    bool* showNativeLegend = nullptr;
     bool* showCustomLegend = nullptr;
     bool* showValues = nullptr;
     bool* showCrosshair = nullptr;

@@ -38,16 +38,17 @@ bool samePlotGeometry(const ChartLayoutState& lhs,
 void RegisterGuiTests(ImGuiTestEngine* engine, const GuiTestAccess& access) {
     gAccess = access;
 
-    ImGuiTest* test = IM_REGISTER_TEST(engine, "canstatio", "startup_windows");
+    ImGuiTest* test = IM_REGISTER_TEST(engine, "custom_chart", "startup_windows");
     test->TestFunc = [](ImGuiTestContext* ctx) {
         ctx->Yield();
 
+        IM_CHECK(isWindowActive(ctx, "//ChartHost"));
         IM_CHECK(isWindowActive(ctx, "//Test Controls"));
         IM_CHECK(isWindowActive(ctx, "//Custom Legend"));
         IM_CHECK(isWindowActive(ctx, "//Values"));
     };
 
-    test = IM_REGISTER_TEST(engine, "canstatio", "window_toggles");
+    test = IM_REGISTER_TEST(engine, "custom_chart", "window_toggles");
     test->TestFunc = [](ImGuiTestContext* ctx) {
         ctx->Yield();
         ctx->SetRef("Test Controls");
@@ -69,8 +70,11 @@ void RegisterGuiTests(ImGuiTestEngine* engine, const GuiTestAccess& access) {
         IM_CHECK(isWindowActive(ctx, "//Custom Legend"));
     };
 
-    test = IM_REGISTER_TEST(engine, "canstatio", "custom_legend_active_series");
+    test = IM_REGISTER_TEST(engine, "custom_chart", "custom_legend_active_series");
     test->TestFunc = [](ImGuiTestContext* ctx) {
+        IM_CHECK(gAccess.activeSeriesIndex != nullptr);
+
+        *gAccess.activeSeriesIndex = std::numeric_limits<std::size_t>::max();
         ctx->Yield();
 
         ctx->SetRef("Test Controls");
@@ -79,137 +83,84 @@ void RegisterGuiTests(ImGuiTestEngine* engine, const GuiTestAccess& access) {
         ctx->SetRef("Custom Legend");
         ctx->ItemClick("**/Pedal %");
         ctx->Yield();
+
+        IM_CHECK(*gAccess.activeSeriesIndex == 0);
         ctx->SetRef("Test Controls");
         IM_CHECK(!isItemDisabled(ctx, "Fit Y"));
 
-        ctx->SetRef("Custom Legend");
-        ctx->ItemClick("**/Throttle %");
-        ctx->Yield();
-        ctx->SetRef("Test Controls");
-        IM_CHECK(!isItemDisabled(ctx, "Fit Y"));
-
-        // Switching back to Pedal must keep an active visible series. If the
-        // previous click failed to change active, this click would clear it.
         ctx->SetRef("Custom Legend");
         ctx->ItemClick("**/Pedal %");
         ctx->Yield();
-        ctx->SetRef("Test Controls");
-        IM_CHECK(!isItemDisabled(ctx, "Fit Y"));
-
-        // Clicking the currently active series again clears active.
-        ctx->SetRef("Custom Legend");
-        ctx->ItemClick("**/Pedal %");
-        ctx->Yield();
-        ctx->SetRef("Test Controls");
-        IM_CHECK(isItemDisabled(ctx, "Fit Y"));
+        IM_CHECK(*gAccess.activeSeriesIndex == std::numeric_limits<std::size_t>::max());
     };
 
-    test = IM_REGISTER_TEST(engine, "canstatio", "custom_legend_hidden_active");
+    test = IM_REGISTER_TEST(engine, "custom_chart", "active_highlight_mode");
     test->TestFunc = [](ImGuiTestContext* ctx) {
-        ctx->Yield();
-
-        ctx->SetRef("Custom Legend");
-        IM_CHECK(ctx->ItemIsChecked("$$0/##visible"));
-        ctx->ItemClick("**/Pedal %");
-        ctx->Yield();
-
-        ctx->SetRef("Test Controls");
-        IM_CHECK(!isItemDisabled(ctx, "Fit Y"));
-
-        // Hiding the active series must keep it logically active. Fit Y is
-        // disabled only because the active series is currently hidden.
-        ctx->SetRef("Custom Legend");
-        ctx->ItemUncheck("$$0/##visible");
-        ctx->Yield();
-        IM_CHECK(!ctx->ItemIsChecked("$$0/##visible"));
-
-        ctx->SetRef("Test Controls");
-        IM_CHECK(isItemDisabled(ctx, "Fit Y"));
-
-        // Showing the same series again must re-enable Fit Y without another
-        // click on its name, proving that active survived hide/show.
-        ctx->SetRef("Custom Legend");
-        ctx->ItemCheck("$$0/##visible");
-        ctx->Yield();
-        IM_CHECK(ctx->ItemIsChecked("$$0/##visible"));
-
-        ctx->SetRef("Test Controls");
-        IM_CHECK(!isItemDisabled(ctx, "Fit Y"));
-
-        // Restore the neutral no-active state for later tests.
-        ctx->SetRef("Custom Legend");
-        ctx->ItemClick("**/Pedal %");
-        ctx->Yield();
-        ctx->SetRef("Test Controls");
-        IM_CHECK(isItemDisabled(ctx, "Fit Y"));
-    };
-
-    test = IM_REGISTER_TEST(engine, "canstatio", "active_highlight_mode");
-    test->TestFunc = [](ImGuiTestContext* ctx) {
-        ctx->Yield();
         IM_CHECK(gAccess.activeHighlightMode != nullptr);
-        IM_CHECK(*gAccess.activeHighlightMode == ActiveHighlightMode::Halo);
+
+        *gAccess.activeHighlightMode = ActiveHighlightMode::Halo;
+        ctx->Yield();
 
         ctx->SetRef("Test Controls");
         ctx->ItemClick("Outline");
         ctx->Yield();
         IM_CHECK(*gAccess.activeHighlightMode == ActiveHighlightMode::Outline);
 
-        // Restore the default mode for later tests and manual runs.
         ctx->ItemClick("Halo");
         ctx->Yield();
         IM_CHECK(*gAccess.activeHighlightMode == ActiveHighlightMode::Halo);
     };
 
-    test = IM_REGISTER_TEST(engine, "canstatio", "stable_plot_area_active_y_axis");
+    test = IM_REGISTER_TEST(engine, "custom_chart", "plot_geometry_and_mouse_time");
     test->TestFunc = [](ImGuiTestContext* ctx) {
         IM_CHECK(gAccess.dataset != nullptr);
         IM_CHECK(gAccess.activeSeriesIndex != nullptr);
+        IM_CHECK(gAccess.xMin != nullptr);
+        IM_CHECK(gAccess.xMax != nullptr);
+        IM_CHECK(gAccess.chartMouseState != nullptr);
         IM_CHECK(gAccess.chartLayoutState != nullptr);
-        IM_CHECK(!gAccess.dataset->series.empty());
-
-        for (Series& series : gAccess.dataset->series) {
-            series.visible = true;
-        }
 
         *gAccess.activeSeriesIndex = std::numeric_limits<std::size_t>::max();
+        *gAccess.xMin = 0.0;
+        *gAccess.xMax = gAccess.dataset->endTimeSeconds();
         ctx->Yield(2);
+
         const ChartLayoutState noActive = *gAccess.chartLayoutState;
-        IM_CHECK(noActive.plotWidth > 0.0F);
-        IM_CHECK(noActive.plotHeight > 0.0F);
+        IM_CHECK(noActive.plotWidth > 100.0F);
+        IM_CHECK(noActive.plotHeight > 100.0F);
+
+        ImGuiWindow* chartHost = ImGui::FindWindowByName("ChartHost");
+        IM_CHECK(chartHost != nullptr);
+        ctx->MouseSetViewport(chartHost);
+
+        const ImVec2 center(noActive.plotX + 0.5F * noActive.plotWidth,
+                            noActive.plotY + 0.5F * noActive.plotHeight);
+        ctx->MouseTeleportToPos(center);
+        ctx->Yield(2);
+
+        IM_CHECK(gAccess.chartMouseState->plotHovered);
+        IM_CHECK(gAccess.chartMouseState->withinDataset);
+        const double expectedTime = 0.5 * (*gAccess.xMin + *gAccess.xMax);
+        IM_CHECK(nearlyEqual(gAccess.chartMouseState->timeSeconds, expectedTime, 0.25));
 
         *gAccess.activeSeriesIndex = 0;
         ctx->Yield(2);
-        const ChartLayoutState firstActive = *gAccess.chartLayoutState;
-        IM_CHECK(samePlotGeometry(noActive, firstActive));
-
-        if (gAccess.dataset->series.size() > 1) {
-            *gAccess.activeSeriesIndex = gAccess.dataset->series.size() - 1;
-            ctx->Yield(2);
-            const ChartLayoutState differentScaleActive = *gAccess.chartLayoutState;
-            IM_CHECK(samePlotGeometry(noActive, differentScaleActive));
-        }
+        IM_CHECK(samePlotGeometry(noActive, *gAccess.chartLayoutState));
 
         *gAccess.activeSeriesIndex = std::numeric_limits<std::size_t>::max();
-        ctx->Yield(2);
-        IM_CHECK(samePlotGeometry(noActive, *gAccess.chartLayoutState));
+        ctx->Yield();
     };
 
-    test = IM_REGISTER_TEST(engine, "canstatio", "fit_x");
+    test = IM_REGISTER_TEST(engine, "custom_chart", "fit_x");
     test->TestFunc = [](ImGuiTestContext* ctx) {
-        ctx->Yield();
         IM_CHECK(gAccess.dataset != nullptr);
         IM_CHECK(gAccess.xMin != nullptr);
         IM_CHECK(gAccess.xMax != nullptr);
 
         const double dataEnd = gAccess.dataset->endTimeSeconds();
-        IM_CHECK(dataEnd > 0.0);
-
         *gAccess.xMin = dataEnd * 0.20;
         *gAccess.xMax = dataEnd * 0.55;
         ctx->Yield();
-        IM_CHECK(!nearlyEqual(*gAccess.xMin, 0.0));
-        IM_CHECK(!nearlyEqual(*gAccess.xMax, dataEnd));
 
         ctx->SetRef("Test Controls");
         ctx->ItemClick("Fit X");
@@ -217,47 +168,5 @@ void RegisterGuiTests(ImGuiTestEngine* engine, const GuiTestAccess& access) {
 
         IM_CHECK(nearlyEqual(*gAccess.xMin, 0.0));
         IM_CHECK(nearlyEqual(*gAccess.xMax, dataEnd));
-    };
-
-    test = IM_REGISTER_TEST(engine, "canstatio", "fit_y");
-    test->TestFunc = [](ImGuiTestContext* ctx) {
-        ctx->Yield();
-        IM_CHECK(gAccess.dataset != nullptr);
-        IM_CHECK(!gAccess.dataset->series.empty());
-
-        ctx->SetRef("Custom Legend");
-        ctx->ItemClick("**/Pedal %");
-        ctx->Yield();
-
-        Series& series = gAccess.dataset->series[0];
-        const float span = series.dataMax - series.dataMin;
-        float expectedMin = 0.0F;
-        float expectedMax = 0.0F;
-        if (span > 0.0F) {
-            const float margin = span * 0.05F;
-            expectedMin = series.dataMin - margin;
-            expectedMax = series.dataMax + margin;
-            series.viewMin = series.dataMin + span * 0.20F;
-            series.viewMax = series.dataMax - span * 0.20F;
-        } else {
-            const float scale = std::max(std::abs(series.dataMin), 1.0F);
-            const float halfRange = scale * 0.05F;
-            expectedMin = series.dataMin - halfRange;
-            expectedMax = series.dataMax + halfRange;
-            series.viewMin = series.dataMin - halfRange * 0.50F;
-            series.viewMax = series.dataMax + halfRange * 0.50F;
-        }
-
-        ctx->SetRef("Test Controls");
-        ctx->ItemClick("Fit Y");
-        ctx->Yield();
-
-        IM_CHECK(nearlyEqual(series.viewMin, expectedMin, 1.0e-4));
-        IM_CHECK(nearlyEqual(series.viewMax, expectedMax, 1.0e-4));
-
-        // Restore neutral active state while preserving the fitted Y range.
-        ctx->SetRef("Custom Legend");
-        ctx->ItemClick("**/Pedal %");
-        ctx->Yield();
     };
 }
