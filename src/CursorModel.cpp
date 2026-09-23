@@ -20,6 +20,11 @@ void CursorModel::hideB() {
     b_.visible = false;
 }
 
+void CursorModel::reset() {
+    a_ = {};
+    b_ = {};
+}
+
 double CursorModel::clampTime(double timeSeconds, double datasetEndSeconds) {
     return std::clamp(timeSeconds, 0.0, std::max(0.0, datasetEndSeconds));
 }

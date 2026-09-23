@@ -17,6 +17,7 @@ public:
     void setB(double timeSeconds, double datasetEndSeconds);
     void hideA();
     void hideB();
+    void reset();
 
     static double clampTime(double timeSeconds, double datasetEndSeconds);
 

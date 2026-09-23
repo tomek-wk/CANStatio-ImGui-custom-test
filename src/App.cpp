@@ -6,6 +6,7 @@
 #include "TestControls.h"
 #include "ValuesWindow.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <utility>
 
@@ -78,7 +79,6 @@ bool App::initialize() {
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
     ImGui::StyleColorsDark();
 
     if (!ImGui_ImplGlfw_InitForOpenGL(window_, true)) {
@@ -88,9 +88,12 @@ bool App::initialize() {
         return false;
     }
 
-    dataset_ = DataGenerator::makeSmall();
+    dataset_ = DataGenerator::make(dataPreset_);
     xMin_ = 0.0;
     xMax_ = dataset_.endTimeSeconds();
+    if (!(xMax_ > xMin_)) {
+        xMax_ = xMin_ + std::max(dataset_.dtSeconds, 1.0e-6);
+    }
 
     const GuiTestAccess testAccess{
         .dataset = &dataset_,
@@ -150,15 +153,27 @@ void App::frame() {
                 xMax_,
                 showCrosshair_,
                 chartMouseState_,
-                chartLayoutState_);
-    TestControls::draw(dataset_,
-                       activeSeriesIndex_,
-                       activeHighlightMode_,
-                       xMin_,
-                       xMax_,
-                       showCustomLegend_,
-                       showValues_,
-                       showCrosshair_);
+                chartLayoutState_,
+                cursorModel_,
+                markerModel_,
+                chartInteractionState_);
+
+    const bool reset = TestControls::draw(dataset_,
+                                          dataPreset_,
+                                          activeSeriesIndex_,
+                                          activeHighlightMode_,
+                                          xMin_,
+                                          xMax_,
+                                          cursorModel_,
+                                          markerModel_,
+                                          showCustomLegend_,
+                                          showValues_,
+                                          showCrosshair_);
+    if (reset) {
+        chartInteractionState_.reset();
+        chartMouseState_ = {};
+    }
+
     CustomLegend::draw(dataset_, activeSeriesIndex_, showCustomLegend_);
     ValuesWindow::draw(dataset_, activeSeriesIndex_, chartMouseState_, showValues_);
     testEngine_.drawUi();

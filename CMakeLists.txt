@@ -86,9 +86,11 @@ add_executable(canstatio_imgui_custom_test
   src/main.cpp
   src/App.cpp
   src/Chart.cpp
+  src/ChartMath.cpp
   src/CursorModel.cpp
   src/CustomLegend.cpp
   src/DataGenerator.cpp
+  src/MarkerModel.cpp
   src/TestControls.cpp
   src/TestEngine.cpp
   src/ValuesModel.cpp
@@ -100,10 +102,17 @@ target_include_directories(canstatio_imgui_custom_test PRIVATE src tests)
 target_link_libraries(canstatio_imgui_custom_test PRIVATE imgui_test_engine imgui glfw OpenGL::GL)
 
 add_executable(canstatio_functional_tests
+  src/ChartMath.cpp
   src/CursorModel.cpp
+  src/DataGenerator.cpp
+  src/MarkerModel.cpp
   src/ValuesModel.cpp
+  tests/functional/ChartMathTests.cpp
   tests/functional/CursorModelTests.cpp
+  tests/functional/DataGeneratorTests.cpp
   tests/functional/DatasetTests.cpp
+  tests/functional/InputPolicyTests.cpp
+  tests/functional/MarkerModelTests.cpp
   tests/functional/ValuesModelTests.cpp
 )
 target_include_directories(canstatio_functional_tests PRIVATE src)
