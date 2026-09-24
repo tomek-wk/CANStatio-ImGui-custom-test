@@ -12,12 +12,22 @@
 #include <string>
 
 struct GLFWwindow;
+struct ID3D11Device;
+struct ID3D11DeviceContext;
+struct ID3D11RenderTargetView;
+struct IDXGISwapChain;
+
+enum class RenderBackend {
+    OpenGL,
+    DirectX11,
+};
 
 struct AppOptions {
     bool runTests = false;
     bool showTestUi = false;
     std::string testFilter;
     std::string testResultsPath;
+    RenderBackend backend = RenderBackend::OpenGL;
 };
 
 class App {
@@ -29,6 +39,13 @@ private:
     bool initialize();
     void shutdown();
     void frame();
+    bool initializeRenderer();
+    void shutdownRenderer();
+    bool initializeDirectX11();
+    void shutdownDirectX11();
+    bool createDirectX11RenderTarget();
+    void destroyDirectX11RenderTarget();
+    void resizeDirectX11IfNeeded();
     void handleWindowModeToggles();
     void toggleFullscreen();
     void toggleBorderless();
@@ -39,6 +56,12 @@ private:
 
     AppOptions options_;
     GLFWwindow* window_ = nullptr;
+    ID3D11Device* d3dDevice_ = nullptr;
+    ID3D11DeviceContext* d3dContext_ = nullptr;
+    IDXGISwapChain* dxgiSwapChain_ = nullptr;
+    ID3D11RenderTargetView* d3dRenderTarget_ = nullptr;
+    int d3dWidth_ = 0;
+    int d3dHeight_ = 0;
     bool fullscreen_ = false;
     bool borderless_ = false;
     bool workAreaWindow_ = false;
