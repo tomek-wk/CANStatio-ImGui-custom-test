@@ -21,6 +21,7 @@
 #include <backends/imgui_impl_dx11.h>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <dxgi1_2.h>
 #endif
 
 namespace {
@@ -201,37 +202,86 @@ bool App::initializeDirectX11() {
         return false;
     }
 
-    DXGI_SWAP_CHAIN_DESC swapDesc{};
-    swapDesc.BufferCount = 2;
-    swapDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapDesc.OutputWindow = hwnd;
-    swapDesc.SampleDesc.Count = 1;
-    swapDesc.Windowed = TRUE;
-    swapDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-    swapDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-
     const D3D_FEATURE_LEVEL featureLevels[] = {
         D3D_FEATURE_LEVEL_11_0,
         D3D_FEATURE_LEVEL_10_0,
     };
     D3D_FEATURE_LEVEL selectedFeatureLevel = D3D_FEATURE_LEVEL_10_0;
 
-    HRESULT result = D3D11CreateDeviceAndSwapChain(nullptr,
-                                                    D3D_DRIVER_TYPE_HARDWARE,
-                                                    nullptr,
-                                                    0,
-                                                    featureLevels,
-                                                    2,
-                                                    D3D11_SDK_VERSION,
-                                                    &swapDesc,
-                                                    &dxgiSwapChain_,
-                                                    &d3dDevice_,
-                                                    &selectedFeatureLevel,
-                                                    &d3dContext_);
+    HRESULT result = D3D11CreateDevice(nullptr,
+                                       D3D_DRIVER_TYPE_HARDWARE,
+                                       nullptr,
+                                       0,
+                                       featureLevels,
+                                       2,
+                                       D3D11_SDK_VERSION,
+                                       &d3dDevice_,
+                                       &selectedFeatureLevel,
+                                       &d3dContext_);
     if (FAILED(result)) {
-        std::fprintf(stderr, "D3D11CreateDeviceAndSwapChain failed: 0x%08lX\n",
+        std::fprintf(stderr, "D3D11CreateDevice failed: 0x%08lX\n",
                      static_cast<unsigned long>(result));
+        return false;
+    }
+
+    IDXGIDevice* dxgiDevice = nullptr;
+    IDXGIAdapter* dxgiAdapter = nullptr;
+    IDXGIFactory2* dxgiFactory = nullptr;
+    IDXGISwapChain1* swapChain1 = nullptr;
+
+    result = d3dDevice_->QueryInterface(IID_PPV_ARGS(&dxgiDevice));
+    if (SUCCEEDED(result)) {
+        result = dxgiDevice->GetAdapter(&dxgiAdapter);
+    }
+    if (SUCCEEDED(result)) {
+        result = dxgiAdapter->GetParent(IID_PPV_ARGS(&dxgiFactory));
+    }
+
+    if (SUCCEEDED(result)) {
+        DXGI_SWAP_CHAIN_DESC1 swapDesc{};
+        swapDesc.Width = 0;
+        swapDesc.Height = 0;
+        swapDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        swapDesc.Stereo = FALSE;
+        swapDesc.SampleDesc.Count = 1;
+        swapDesc.SampleDesc.Quality = 0;
+        swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swapDesc.BufferCount = 2;
+        swapDesc.Scaling = DXGI_SCALING_STRETCH;
+        swapDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        swapDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+        swapDesc.Flags = 0;
+
+        result = dxgiFactory->CreateSwapChainForHwnd(d3dDevice_,
+                                                      hwnd,
+                                                      &swapDesc,
+                                                      nullptr,
+                                                      nullptr,
+                                                      &swapChain1);
+        if (SUCCEEDED(result)) {
+            dxgiFactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
+            dxgiSwapChain_ = swapChain1;
+            swapChain1 = nullptr;
+        }
+    }
+
+    if (swapChain1 != nullptr) {
+        swapChain1->Release();
+    }
+    if (dxgiFactory != nullptr) {
+        dxgiFactory->Release();
+    }
+    if (dxgiAdapter != nullptr) {
+        dxgiAdapter->Release();
+    }
+    if (dxgiDevice != nullptr) {
+        dxgiDevice->Release();
+    }
+
+    if (FAILED(result) || dxgiSwapChain_ == nullptr) {
+        std::fprintf(stderr, "CreateSwapChainForHwnd (FLIP_DISCARD) failed: 0x%08lX\n",
+                     static_cast<unsigned long>(result));
+        shutdownDirectX11();
         return false;
     }
 
@@ -242,7 +292,7 @@ bool App::initializeDirectX11() {
 
     glfwGetFramebufferSize(window_, &d3dWidth_, &d3dHeight_);
     std::fprintf(stderr,
-                 "Rendering backend: DirectX 11 (feature level 0x%04X)\n",
+                 "Rendering backend: DirectX 11 / DXGI FLIP_DISCARD (feature level 0x%04X)\n",
                  static_cast<unsigned int>(selectedFeatureLevel));
     return true;
 #endif
