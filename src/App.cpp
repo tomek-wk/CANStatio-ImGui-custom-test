@@ -33,7 +33,6 @@ void logOpenGlInfo() {
     std::fprintf(stderr, "OpenGL vendor: %s\n", glString(GL_VENDOR));
     std::fprintf(stderr, "OpenGL renderer: %s\n", glString(GL_RENDERER));
     std::fprintf(stderr, "OpenGL version: %s\n", glString(GL_VERSION));
-    std::fprintf(stderr, "GLSL version: %s\n", glString(GL_SHADING_LANGUAGE_VERSION));
 }
 } // namespace
 
