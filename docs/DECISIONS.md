@@ -186,3 +186,11 @@ W szczególności:
 **Decyzja:** bieżąca wersja `docs/PROJECT_SPEC.md` jest kompletną specyfikacją bazową pierwszego eksperymentu custom chart.
 
 Drobne parametry wizualne i tuning szybkości mogą zmieniać się po testach manualnych bez zmiany specyfikacji, ale zmiana semantyki gestów, modelu danych, zakresu eksperymentu lub zachowania narzędzi wymaga jawnej aktualizacji `PROJECT_SPEC.md` i tego rejestru.
+
+## 2026-09-24
+
+### D-036 — exclusive fullscreen jako funkcja docelowa
+
+**Decyzja:** aplikacja obsługuje exclusive fullscreen przełączany klawiszem `F11`. Wejście w fullscreen zachowuje stan aplikacji, a wyjście przywraca poprzednią pozycję i rozmiar okna.
+
+**Powód:** testy manualne wykazały stabilne, pozbawione obserwowanych błysków działanie w exclusive fullscreen, a sam tryb jest użyteczny dla docelowego LogViewera.
