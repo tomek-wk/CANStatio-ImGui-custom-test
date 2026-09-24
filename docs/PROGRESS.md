@@ -14,7 +14,7 @@ Repozytorium jest niezależnym eksperymentem Dear ImGui z własną implementacj�
 
 **Status: kompletna bazowa specyfikacja pierwszego eksperymentu.**
 
-`docs/PROJECT_SPEC.md` definiuje model danych, rendering, osie, nawigację, active/visibility, Values, cursory, markery, input priority, presety i kryterium sukcesu.
+`docs/PROJECT_SPEC.md` definiuje model danych, rendering, osie, nawigację, active/visibility, Values, cursory, markery, input priority, presety, exclusive fullscreen i kryterium sukcesu.
 
 ## Implementacja
 
@@ -117,6 +117,12 @@ Renderer nadal działa raw, bez LOD/downsamplingu, zgodnie ze specyfikacją. Wid
 
 Pomiary wydajności i decyzja o potrzebie LOD **nie zostały jeszcze wykonane**.
 
+### Tryb okna
+
+`F11` przełącza docelowy **exclusive fullscreen** i przy wyjściu przywraca poprzednią geometrię zwykłego okna. Funkcja została dodana do `PROJECT_SPEC.md` i `DECISIONS.md`.
+
+Kod zawiera także tymczasowe tryby diagnostyczne F8–F10 użyte podczas badania artefaktów okna. Nie są one częścią specyfikacji produktu.
+
 ## Reset i preset switching
 
 `Test Controls` obsługuje wybór wszystkich presetów oraz pełny Reset.
@@ -156,75 +162,52 @@ Nie jest to wynik aktualnej implementacji.
 
 ### Aktualna pełna implementacja — target Windows
 
-Zweryfikowany checkout przed poprawką renderingu:
+Ostatnia automatyczna weryfikacja kodu przed odświeżeniem dokumentacji:
 
 ```text
 branch: main
-commit: 5f17de5
-working tree: clean
+commit: 5a96144
+configure/build: PASS
+functional: 41/41 PASS
+GUI integration: 6/6 PASS
 ```
 
-Rejestracja projektu w Test Agencie wykonała pełne configure + build:
+Środowisko renderujące zarejestrowane przez aplikację:
 
 ```text
-configure: PASS
-build: PASS
+OpenGL vendor: Intel
+OpenGL renderer: Intel(R) HD Graphics 530
+OpenGL version: 3.3.0 - Build 30.0.101.1692
 ```
 
-Środowisko:
-
-```text
-Windows 10 build 19045
-GCC/G++ 16.2.0
-CMake 4.4.3
-CTest 4.4.3
-Ninja 1.13.2
-GoogleTest 1.18.0
-```
-
-Functional suite:
-
-```text
-41/41 PASS
-100% tests passed
-exit code 0
-```
-
-GUI integration suite:
-
-```text
-6/6 PASS
-Tests Result: OK
-exit code 0
-```
-
-JUnit utworzony dla obu suite:
+JUnit jest tworzony dla obu suite:
 
 ```text
 build/test-results/functional-tests.xml
 build/test-results/imgui-tests.xml
 ```
 
-### Mitigacja krótkich artefaktów linii — 2026-09-24
+### Badanie krótkich artefaktów renderingu — zakończone na tym etapie
 
-Podczas ręcznej obserwacji zgłoszono bardzo krótkie, losowe błyski w obszarze wykresu, prawdopodobnie w pobliżu neutralnego grida. Nie wykazano zależności od datasetu ani interakcji.
+Podczas ręcznej obserwacji występowały bardzo krótkie, losowe kolorowe błyski/prostokąty w obszarze wykresu. Wyłączenie teksturowanego wariantu antyaliasingu linii (`AntiAliasedLinesUseTex = false`) wyraźnie ograniczyło problem, ale go nie usunęło.
 
-Jako pierwszą, minimalną hipotezę diagnostyczną wyłączono wyłącznie teksturowany wariant antyaliasingu linii Dear ImGui (`AntiAliasedLinesUseTex = false`), pozostawiając sam antyaliasing włączony. Ma to ominąć ścieżkę AA zależną od tekstury atlasu i filtrowania backendu/GPU bez zmiany geometrii, danych ani zachowania wykresu.
+Dalsza diagnostyka wykazała, że podobne błyski występują również w wcześniejszej wersji opartej na ImPlot, więc problem nie jest charakterystyczny wyłącznie dla custom renderera.
 
-Po zmianie Test Agent wykonał:
+Manualne porównanie trybów okna na tym samym buildzie:
 
 ```text
-pull/configure/build: PASS
-functional: 41/41 PASS
-GUI integration: 6/6 PASS
+Maximized                 -> błyski częste
+F9 decorated work-area    -> błyski rzadsze
+F8 undecorated work-area  -> błyski bardzo rzadkie
+F10 borderless fullscreen -> brak zaobserwowanych błysków
+F11 exclusive fullscreen  -> brak zaobserwowanych błysków
 ```
 
-Manualne potwierdzenie, czy błyski zniknęły, **oczekuje**. Jeżeli problem pozostanie, kolejnym krokiem będzie izolacja samego grida i przejście na nieantyaliasowane, pixel-snapped 1 px primitives zamiast dalszych zmian logiki wykresu.
+Wynik wskazuje na silną zależność od ścieżki prezentacji dużego klasycznego okna Windows/OpenGL. Nie ma podstaw, aby przypisywać problem wyłącznie geometrii custom chartu. Badanie artefaktów zostało na razie zakończone bez dalszych zmian renderera.
 
-### Co pozostaje niezweryfikowane
+## Co pozostaje niezweryfikowane
 
-- manualna jakość wizualna osi, grida, linii i highlightów;
-- ergonomia rzeczywistych gestów X/Y, RMB, cursorów i markerów;
+- pełna manualna ocena ergonomii rzeczywistych gestów X/Y, RMB, cursorów i markerów;
 - performance Reference;
 - performance Stress Raw;
 - decyzja o potrzebie LOD/downsamplingu.
@@ -233,7 +216,7 @@ Aktualny GUI suite jest smoke/integration suite i nie obejmuje jeszcze end-to-en
 
 ## Następny krok
 
-Najpierw ręcznie sprawdzić, czy zmiana sposobu AA usunęła losowe błyski. Następnie wykonać manualną walidację UX oraz pomiar Reference / Stress Raw. Później rozszerzyć GUI regression o najważniejsze rzeczywiste gesty, szczególnie:
+Badanie artefaktów okna jest zamknięte na obecnym etapie. Kolejne prace powinny wrócić do głównego celu eksperymentu: manualnej walidacji UX oraz pomiarów Reference / Stress Raw, a następnie ewentualnego rozszerzenia GUI regression o najważniejsze rzeczywiste gesty:
 
 ```text
 plain drag / wheel X
