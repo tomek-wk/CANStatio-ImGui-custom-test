@@ -63,10 +63,19 @@ Poza zakresem pierwszej wersji:
 - GCC / MinGW-w64 z MSYS2 UCRT64;
 - CMake + Ninja;
 - GLFW;
-- OpenGL 3.3 Core Profile;
+- OpenGL 3.3 Core Profile jako domyślny backend renderujący;
+- opcjonalny DirectX 11 na Windows przez `--backend=dx11`;
 - Dear ImGui;
 - Dear ImGui Test Engine;
 - GoogleTest + CTest.
+
+Backend OpenGL pozostaje domyślnym i podstawowym wariantem eksperymentu. Na Windows można jawnie wybrać backend DirectX 11:
+
+```text
+run --backend=dx11
+```
+
+Backend DX11 używa `IDXGIFactory2::CreateSwapChainForHwnd` z `DXGI_SWAP_EFFECT_FLIP_DISCARD` i dwoma buforami. Jest zachowany jako alternatywna ścieżka prezentacji; nie zmienia semantyki wykresu ani modelu danych.
 
 Przypięte wersje bazowe:
 
