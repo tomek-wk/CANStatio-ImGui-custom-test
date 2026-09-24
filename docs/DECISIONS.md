@@ -194,3 +194,25 @@ Drobne parametry wizualne i tuning szybkości mogą zmieniać się po testach ma
 **Decyzja:** aplikacja obsługuje exclusive fullscreen przełączany klawiszem `F11`. Wejście w fullscreen zachowuje stan aplikacji, a wyjście przywraca poprzednią pozycję i rozmiar okna.
 
 **Powód:** testy manualne wykazały stabilne, pozbawione obserwowanych błysków działanie w exclusive fullscreen, a sam tryb jest użyteczny dla docelowego LogViewera.
+
+### D-037 — OpenGL pozostaje domyślnym backendem mimo znanego problemu prezentacji
+
+**Decyzja:** domyślnym backendem pozostaje natywny OpenGL 3.3 przez GLFW/WGL. Nie wprowadzamy ANGLE, OpenGL-to-D3D interop ani innych zmian ścieżki OpenGL w tym eksperymencie.
+
+**Znany problem:** na testowym Windows 10 z Intel HD Graphics 530 i sterownikiem `30.0.101.1692` w dużym, szczególnie zmaksymalizowanym klasycznym oknie mogą pojawiać się bardzo krótkie losowe kolorowe błyski/prostokąty. Problem wystąpił także w prototypie ImPlot, nie zniknął po wyłączeniu MPO i nie jest przypisany do geometrii custom chartu. Wyłączenie `AntiAliasedLinesUseTex` zmniejsza widoczność/częstotliwość, ale nie eliminuje problemu.
+
+**Powód:** OpenGL jest nadal docelową bazą eksperymentu, a artefakt jest zależny od konkretnej ścieżki prezentacji/systemu i nie blokuje dalszej oceny funkcjonalności wykresu.
+
+### D-038 — opcjonalny backend DX11 używa DXGI flip model
+
+**Decyzja:** na Windows aplikację można uruchomić z `--backend=dx11`. Backend DirectX 11 tworzy swap chain przez `IDXGIFactory2::CreateSwapChainForHwnd` i używa `DXGI_SWAP_EFFECT_FLIP_DISCARD`. OpenGL pozostaje domyślny.
+
+**Weryfikacja manualna:** na tej samej maszynie testowej wcześniejszy DX11 z legacy `DXGI_SWAP_EFFECT_DISCARD` nadal wykazywał migotanie, natomiast po przejściu na `DXGI_SWAP_EFFECT_FLIP_DISCARD` nie zaobserwowano migotania w zmaksymalizowanym zwykłym oknie.
+
+**Powód:** zachowujemy działający wariant prezentacji jako alternatywny backend i punkt odniesienia dla znanego problemu OpenGL, bez przebudowy domyślnej ścieżki OpenGL.
+
+### D-039 — tryby diagnostyczne F8–F10 usunięte
+
+**Decyzja:** tymczasowe tryby okna F8/F9/F10 używane podczas diagnostyki prezentacji zostały usunięte po zakończeniu badania. W normalnym programie pozostaje `F11` exclusive fullscreen.
+
+**Powód:** tryby diagnostyczne nie należały do funkcjonalności produktu i nie są już potrzebne do dalszych prac.
