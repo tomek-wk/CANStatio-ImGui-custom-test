@@ -69,7 +69,7 @@ target_include_directories(imgui PUBLIC
 target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_TEST_ENGINE)
 target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 if(WIN32)
-  target_link_libraries(imgui PUBLIC d3d11 dxgi)
+  target_link_libraries(imgui PUBLIC d3d11 dxgi d3dcompiler)
 endif()
 
 add_library(imgui_test_engine STATIC
