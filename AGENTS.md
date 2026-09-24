@@ -71,7 +71,9 @@ Bez osobnej decyzji nie dodawaj:
 - Windows first
 - GCC / MinGW-w64 (MSYS2 UCRT64)
 - CMake + Ninja
-- GLFW + OpenGL 3.3 Core
+- GLFW
+- OpenGL 3.3 Core jako domyślny backend
+- opcjonalny DirectX 11 na Windows przez `--backend=dx11`, z DXGI flip model
 - Dear ImGui `v1.92.9b`
 - Dear ImGui Test Engine `508a8fc8dacac2f346d353fed31b9bc90ed29adc`
 - GoogleTest + CTest
@@ -120,14 +122,22 @@ Pełna semantyka znajduje się w `docs/PROJECT_SPEC.md`.
 2. **GUI integration** — Dear ImGui Test Engine;
 3. **manual** — wygląd, ergonomia i performance.
 
-Docelowy Windows PC jest preferowanym środowiskiem weryfikacji. Test Agent jest tylko kanałem komunikacji i **nie należy go obecnie używać, dopóki użytkownik nie poinformuje, że znów działa**.
+Docelowy Windows PC jest preferowanym środowiskiem weryfikacji. Test Agent jest dostępny i służy wyłącznie jako kanał komunikacji z tym środowiskiem; nie modyfikuj jego repozytorium ani konfiguracji.
 
 GitHub-hosted Windows pozostaje ręcznym `workflow_dispatch` fallbackiem build + functional.
 
 ## Aktualny stan weryfikacji
 
-Pełna implementacja jest zapisana na `main`, ale nie została jeszcze zbudowana ani uruchomiona po integracji C2–C7.
+Pełna implementacja custom chart została zbudowana i zweryfikowana na docelowym Windows PC. Po oczyszczeniu tymczasowych trybów diagnostycznych F8/F9/F10 potwierdzono:
+
+```text
+configure/build: PASS
+functional: 41/41 PASS
+GUI integration: 6/6 PASS
+```
+
+OpenGL pozostaje domyślnym backendem. Znany problem krótkich artefaktów prezentacji w dużym/maximized oknie na testowej konfiguracji Intel HD Graphics 530 jest opisany w `README.md`, `docs/DECISIONS.md` i `docs/PROGRESS.md`. Opcjonalny `--backend=dx11` używa `DXGI_SWAP_EFFECT_FLIP_DISCARD` i w ręcznym teście nie wykazał migotania.
 
 Nie traktuj historycznych wyników skopiowanego prototypu jako wyniku custom renderera.
 
-Najbliższa przyszła praca po odzyskaniu środowiska testowego to walidacja, poprawki wynikające z testów oraz pomiar Reference/Stress Raw — nie dalsze dodawanie funkcji przed pierwszym pełnym sprawdzeniem.
+Najbliższa praca to manualna walidacja UX, rozszerzenie najważniejszych GUI regression oraz pomiary Reference / Stress Raw przed decyzją o LOD/downsamplingu.
