@@ -36,6 +36,7 @@ Implemented experiment scope:
 - A/B time cursors;
 - numbered draggable markers;
 - explicit input-priority routing;
+- exclusive fullscreen with `F11`;
 - raw Reference / Stress Raw path for later performance evaluation.
 
 Overview/minimap, irregular sampling, gaps/NaN semantics, step/digital signals and LOD/downsampling remain outside the first experiment.
@@ -48,9 +49,40 @@ Dear ImGui remains the GUI framework. The chart itself is application-owned.
 
 There is no external plotting library and no artificial shared Y coordinate space. Each visible series maps directly from its own raw `viewMin..viewMax` to the common plot rectangle.
 
+## Rendering backends
+
+OpenGL 3.3 through GLFW/WGL is the default backend:
+
+```text
+run
+run --backend=opengl
+```
+
+On Windows an alternative DirectX 11 backend is available:
+
+```text
+run --backend=dx11
+```
+
+The DX11 backend uses `IDXGIFactory2::CreateSwapChainForHwnd` with `DXGI_SWAP_EFFECT_FLIP_DISCARD`.
+
+### Known Windows/OpenGL presentation issue
+
+On the target Windows 10 PC with Intel HD Graphics 530 and driver `30.0.101.1692`, very short random colored flashes/rectangles can appear in a large, especially maximized, normal OpenGL window. The same class of artifact was also observed in the earlier ImPlot prototype, so it is not considered specific to the custom chart geometry.
+
+Diagnostics established:
+
+- disabling texture-based line AA (`AntiAliasedLinesUseTex = false`) reduces the visibility/frequency but does not eliminate the issue;
+- disabling Windows MPO did not eliminate it;
+- legacy DX11 presentation with `DXGI_SWAP_EFFECT_DISCARD` also flickered;
+- DX11 with `DXGI_SWAP_EFFECT_FLIP_DISCARD` showed no observed flicker in the same maximized-window manual test;
+- exclusive fullscreen also showed no observed flicker.
+
+The project intentionally keeps native OpenGL as the default backend in its current form. `--backend=dx11` is retained as an alternative presentation path and a known working reference for this machine.
+
 ## Current status
 
-The complete first custom-chart specification has been implemented on `main` in one integration pass.
+The complete first custom-chart specification has been implemented on `main`.
 
 Implemented:
 
@@ -65,20 +97,11 @@ Implemented:
 - exclusive modifier routing;
 - reset/preset switching;
 - Small, Reference, Overlap, Mixed Scale, Spikes / Noise, Long Time and Stress Raw datasets;
-- functional tests for chart math, input policy, marker state and deterministic generator behavior.
+- functional tests for chart math, input policy, marker state and deterministic generator behavior;
+- OpenGL default renderer plus optional Windows DX11 flip-model backend;
+- `F11` exclusive fullscreen.
 
-### Verification state
-
-Target Windows PC validation for commit `5f17de5` completed successfully:
-
-```text
-configure: PASS
-build:     PASS
-functional: 41/41 PASS
-GUI:         6/6 PASS
-```
-
-JUnit reports were generated for both functional and GUI suites.
+Temporary F8/F9/F10 window modes used during presentation diagnostics have been removed.
 
 Manual UX and raw Reference / Stress Raw performance validation remain pending. The current GUI suite is still a smoke/integration suite and does not yet exercise every interaction gesture end-to-end.
 
@@ -89,7 +112,8 @@ Manual UX and raw Reference / Stress Raw performance validation remain pending. 
 - GCC / MinGW-w64 (MSYS2 UCRT64)
 - CMake + Ninja
 - GLFW
-- OpenGL 3.3 Core Profile
+- OpenGL 3.3 Core Profile — default renderer
+- DirectX 11 / DXGI `FLIP_DISCARD` — optional Windows renderer
 - Dear ImGui `v1.92.9b`
 - GoogleTest + CTest
 - Dear ImGui Test Engine commit `508a8fc8dacac2f346d353fed31b9bc90ed29adc`
@@ -108,6 +132,20 @@ Windows executable:
 ```text
 build/canstatio_imgui_custom_test.exe
 ```
+
+Default OpenGL run:
+
+```text
+run
+```
+
+Optional DirectX 11 run:
+
+```text
+run --backend=dx11
+```
+
+`run.bat` forwards command-line arguments to the executable.
 
 Functional tests:
 
