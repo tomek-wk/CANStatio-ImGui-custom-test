@@ -92,7 +92,13 @@ Pełna implementacja ma znacznie większy zakres niż aktualny GUI smoke suite. 
 
 ## Weryfikacja obecnego kodu
 
-Target Windows PC zweryfikował implementację z commita `5f17de5`.
+Target Windows PC zweryfikował oczyszczony kod po usunięciu tymczasowych trybów diagnostycznych F8/F9/F10.
+
+Zweryfikowany commit kodu:
+
+```text
+a244fc0
+```
 
 Configure/build:
 
@@ -124,7 +130,15 @@ build/test-results/functional-tests.xml
 build/test-results/imgui-tests.xml
 ```
 
-To jest pierwsza potwierdzona automatyczna walidacja pełnego custom renderera na docelowym Windows PC.
+GUI suite był uruchomiony na domyślnym backendzie OpenGL i zarejestrował:
+
+```text
+OpenGL vendor: Intel
+OpenGL renderer: Intel(R) HD Graphics 530
+OpenGL version: 3.3.0 - Build 30.0.101.1692
+```
+
+Późniejsze commity `README.md`, `docs/DECISIONS.md`, `docs/PROGRESS.md`, `AGENTS.md` i tego pliku są zmianami dokumentacyjnymi dotyczącymi handoffu i nie zmieniają zweryfikowanego kodu wykonywalnego.
 
 ## Historyczny baseline
 
@@ -162,6 +176,8 @@ Manualnie należy sprawdzić przede wszystkim:
 - czy Alt-click / Alt-drag threshold jest ergonomiczny;
 - czy Reference jest praktycznie płynny;
 - gdzie Stress Raw ujawnia potrzebę LOD.
+
+Znany problem prezentacji Windows/OpenGL i alternatywny backend DX11 są opisane w `README.md`, `docs/DECISIONS.md` i `docs/PROGRESS.md`. Nie są traktowane jako automatyczny PASS/FAIL testów GUI.
 
 ## Docelowa dalsza sekwencja walidacji
 
