@@ -18,92 +18,65 @@ Repozytorium jest niezależnym eksperymentem Dear ImGui z własną implementacj�
 
 ## Implementacja
 
-### C0 — dokumentacja i wymagania
+### C0–C7
 
-**Zakończony.**
+Bazowa implementacja custom chart jest kompletna funkcjonalnie:
 
-### C1 — minimalny własny plot
+- app-owned plot area i transformacje data/screen;
+- własne osie X/Y, ticki i grid;
+- niezależny Y każdej serii;
+- pan/zoom X i Y;
+- Fit X / Fit Y;
+- active series i visibility;
+- RMB hit-test serii;
+- Halo / Outline;
+- Values i crosshair;
+- cursory A/B;
+- markery;
+- jawna `InputPolicy`;
+- pełny zestaw presetów od Small do Stress Raw;
+- raw rendering bez LOD/downsamplingu.
 
-**Zakończony.**
+Pomiary Reference / Stress Raw i decyzja o potrzebie LOD nadal pozostają do wykonania.
 
-Usunięto zewnętrzną bibliotekę wykresową i utworzono app-owned plot rectangle z bezpośrednim raw-data -> screen rendering przez Dear ImGui `ImDrawList`.
+### Tryb okna
 
-### C2 — transforms, osie, grid i X navigation
+`F11` przełącza docelowy **exclusive fullscreen** i przy wyjściu przywraca poprzednią geometrię zwykłego okna.
 
-**Zaimplementowany.**
+Tymczasowe tryby diagnostyczne F8/F9/F10 zostały usunięte po zakończeniu badania artefaktów. Nie należały do specyfikacji produktu.
 
-- `ChartMath` jako wspólna matematyka data/screen;
-- transformacje X/Y i odwrotne;
-- własne ticki czasu;
-- własna oś X i format względnego czasu;
-- neutralny grid;
-- plain LMB grab-content pan X;
-- plain wheel zoom X względem czasu pod myszą;
-- minimum X = `dt`;
-- brak clampa viewportu do datasetu;
-- Fit X;
-- stała geometria plot area.
+### Backend renderujący
 
-### C3 — niezależny Y i active series
+Domyślny backend pozostaje bez zmian:
 
-**Zaimplementowany.**
+```text
+OpenGL 3.3 / GLFW / WGL
+```
 
-- bezpośrednie mapowanie każdego `viewMin/viewMax` do plot area;
-- semantic Y active visible series;
-- Y ticks `1/2/5 × 10^n`;
-- kolorowy semantic grid;
-- Fit Y;
-- `Alt + drag` grab-content pan Y;
-- `Alt + wheel` zoom Y wokół środka zakresu;
-- RMB screen-space hit-test segmentów;
-- toggle/clear active;
-- hidden-active zachowuje logiczny stan;
-- Halo / Outline korzystają z tej samej geometrii co linia danych.
+Uruchomienie:
 
-### C4 — Values i crosshair
+```text
+run
+run --backend=opengl
+```
 
-**Zaimplementowany.**
+Na Windows zachowany jest opcjonalny backend DirectX 11:
 
-- mouse time pochodzi z własnej transformacji screen -> time;
-- Values zachowuje interpolację liniową;
-- ukryte serie nie pojawiają się w Values;
-- crosshair jest niezależnym dokładnym mouse-X i nie snapuje do próbek;
-- zachowanie działa z app-owned pan/zoom X.
+```text
+run --backend=dx11
+```
 
-### C5 — kursory A/B
+DX11 używa:
 
-**Zaimplementowany.**
+```text
+IDXGIFactory2::CreateSwapChainForHwnd
+DXGI_SWAP_EFFECT_FLIP_DISCARD
+BufferCount = 2
+```
 
-- dokładnie dwa time cursors A/B;
-- `Shift + LMB` set A;
-- `Ctrl + LMB` set B;
-- plain LMB drag istniejącego kursora;
-- `Ctrl + RMB` hide;
-- clamp do datasetu;
-- własny render, hit-test i drag w screen-space;
-- po pan/zoom X kursory zachowują czas.
+`run.bat` przekazuje argumenty CLI do programu.
 
-### C6 — markery i pełny input priority
-
-**Zaimplementowany.**
-
-- `MarkerModel` z numeracją `0,1,2...`;
-- usunięte ID nie jest ponownie używane;
-- Reset zeruje licznik;
-- `Alt + LMB` tworzy marker po release, jeśli ruch pozostał poniżej progu;
-- po przekroczeniu około 5 px gest staje się pan Y przy active visible series;
-- bez active visible series przekroczony Alt-drag jest anulowany;
-- plain LMB drag markera;
-- `Ctrl + RMB` remove;
-- jawna `InputPolicy` dla priorytetów Shift/Ctrl/Alt/plain;
-- modifier gestures nie przechodzą awaryjnie do X/selection;
-- drag zachowuje ownership do release.
-
-### C7 — pełne presety i ścieżka performance
-
-**Zaimplementowana funkcjonalnie.**
-
-Dostępne presety:
+## Presety
 
 - Small / Sanity — 3 × 1 000, 100 ms;
 - Reference — 60 × 36 000, 100 ms;
@@ -113,19 +86,9 @@ Dostępne presety:
 - Long Time — 10 × 108 000, 100 ms;
 - Stress Raw — 60 × 360 000, 10 ms.
 
-Renderer nadal działa raw, bez LOD/downsamplingu, zgodnie ze specyfikacją. Widoczny zakres próbek jest ograniczany do viewportu X z małym zapasem.
-
-Pomiary wydajności i decyzja o potrzebie LOD **nie zostały jeszcze wykonane**.
-
-### Tryb okna
-
-`F11` przełącza docelowy **exclusive fullscreen** i przy wyjściu przywraca poprzednią geometrię zwykłego okna. Funkcja została dodana do `PROJECT_SPEC.md` i `DECISIONS.md`.
-
-Kod zawiera także tymczasowe tryby diagnostyczne F8–F10 użyte podczas badania artefaktów okna. Nie są one częścią specyfikacji produktu.
+Renderer nadal działa raw, bez LOD/downsamplingu. Widoczny zakres próbek jest ograniczany do viewportu X z małym zapasem.
 
 ## Reset i preset switching
-
-`Test Controls` obsługuje wybór wszystkich presetów oraz pełny Reset.
 
 Reset:
 
@@ -137,42 +100,36 @@ Reset:
 - markers cleared;
 - marker counter = 0.
 
-## Testy dodane razem z pełną implementacją
+## Testy
 
-Nowe testowalne komponenty:
+Testowalne komponenty obejmują:
 
 - `ChartMath` — transforms, pan/zoom, nice/time ticks, point-to-segment;
 - `InputPolicy` — priorytety modifierów i brak fallbacków;
 - `MarkerModel` — ID, clamp, move, remove, reset;
-- `DataGenerator` — Small specification, determinism i nazwy presetów.
+- `DataGenerator` — Small specification, determinism i nazwy presetów;
+- zachowane `Dataset`, `Series`, `ValuesModel`, `CursorModel`;
+- GUI smoke/integration — startup, okna, Custom Legend, highlight, plot geometry/mouse-time i Fit X.
 
-Zachowane są testy `Dataset`, `Series`, `ValuesModel` i `CursorModel`, a GUI smoke suite sprawdza startup, okna, Custom Legend, highlight, plot geometry/mouse-time i Fit X.
+### Aktualna automatyczna weryfikacja oczyszczonego kodu
 
-## Weryfikacja
-
-### Historyczny baseline
-
-Skopiowana baza przed custom rendererem miała:
+Kod po usunięciu F8/F9/F10 został zbudowany i przetestowany na target Windows jako commit:
 
 ```text
-21/21 functional PASS + 19/19 GUI PASS
-```
-
-Nie jest to wynik aktualnej implementacji.
-
-### Aktualna pełna implementacja — target Windows
-
-Ostatnia automatyczna weryfikacja kodu przed odświeżeniem dokumentacji:
-
-```text
-branch: main
-commit: 5a96144
+commit: a244fc0
 configure/build: PASS
 functional: 41/41 PASS
 GUI integration: 6/6 PASS
 ```
 
-Środowisko renderujące zarejestrowane przez aplikację:
+JUnit:
+
+```text
+build/test-results/functional-tests.xml
+build/test-results/imgui-tests.xml
+```
+
+GUI suite w tej weryfikacji pracował na domyślnym OpenGL i zarejestrował:
 
 ```text
 OpenGL vendor: Intel
@@ -180,30 +137,43 @@ OpenGL renderer: Intel(R) HD Graphics 530
 OpenGL version: 3.3.0 - Build 30.0.101.1692
 ```
 
-JUnit jest tworzony dla obu suite:
+## Znany problem prezentacji Windows/OpenGL
+
+Na testowym Windows 10 z Intel HD Graphics 530 i sterownikiem `30.0.101.1692` w dużym, szczególnie zmaksymalizowanym zwykłym oknie OpenGL mogą pojawiać się bardzo krótkie losowe kolorowe błyski/prostokąty.
+
+Wyniki diagnostyki:
 
 ```text
-build/test-results/functional-tests.xml
-build/test-results/imgui-tests.xml
+OpenGL, maximized                  -> migotanie występuje
+ImPlot/OpenGL                      -> podobny problem, zwykle mniej widoczny
+AntiAliasedLinesUseTex = false     -> wyraźna poprawa, ale nie pełne usunięcie
+MPO wyłączone                      -> problem nadal występuje
+DX11 legacy DISCARD                -> problem nadal występuje
+DX11 FLIP_DISCARD                  -> brak zaobserwowanego migotania
+exclusive fullscreen               -> brak zaobserwowanego migotania
 ```
 
-### Badanie krótkich artefaktów renderingu — zakończone na tym etapie
-
-Podczas ręcznej obserwacji występowały bardzo krótkie, losowe kolorowe błyski/prostokąty w obszarze wykresu. Wyłączenie teksturowanego wariantu antyaliasingu linii (`AntiAliasedLinesUseTex = false`) wyraźnie ograniczyło problem, ale go nie usunęło.
-
-Dalsza diagnostyka wykazała, że podobne błyski występują również w wcześniejszej wersji opartej na ImPlot, więc problem nie jest charakterystyczny wyłącznie dla custom renderera.
-
-Manualne porównanie trybów okna na tym samym buildzie:
+Podczas wcześniejszej diagnostyki wielkości/rodzaju okna obserwowano również:
 
 ```text
-Maximized                 -> błyski częste
-F9 decorated work-area    -> błyski rzadsze
-F8 undecorated work-area  -> błyski bardzo rzadkie
-F10 borderless fullscreen -> brak zaobserwowanych błysków
-F11 exclusive fullscreen  -> brak zaobserwowanych błysków
+maximized decorated      -> dużo błysków
+large decorated workarea -> mniej błysków
+undecorated workarea     -> bardzo rzadkie błyski
+borderless full monitor  -> brak zaobserwowanych błysków
+exclusive fullscreen     -> brak zaobserwowanych błysków
 ```
 
-Wynik wskazuje na silną zależność od ścieżki prezentacji dużego klasycznego okna Windows/OpenGL. Nie ma podstaw, aby przypisywać problem wyłącznie geometrii custom chartu. Badanie artefaktów zostało na razie zakończone bez dalszych zmian renderera.
+Wniosek roboczy: problem jest związany ze ścieżką prezentacji/kompozycji dużego okna Windows, a nie z samą geometrią custom chartu. Natywne OpenGL/WGL nie daje aplikacji bezpośredniego odpowiednika ustawienia `DXGI_SWAP_EFFECT_FLIP_DISCARD`.
+
+Decyzja projektowa:
+
+- **OpenGL pozostaje domyślny i nie jest dalej przebudowywany w ramach tej diagnostyki**;
+- `AntiAliasedLinesUseTex = false` pozostaje włączone jako proste ograniczenie widoczności artefaktu;
+- `--backend=dx11` pozostaje dostępny jako alternatywny backend Windows;
+- DX11 używa `FLIP_DISCARD`, ponieważ w ręcznym teście zmaksymalizowanego okna nie zaobserwowano na nim migotania;
+- dalsze eksperymenty ANGLE/WGL/D3D interop nie są obecnie planowane.
+
+Badanie artefaktów jest zakończone.
 
 ## Co pozostaje niezweryfikowane
 
@@ -216,7 +186,7 @@ Aktualny GUI suite jest smoke/integration suite i nie obejmuje jeszcze end-to-en
 
 ## Następny krok
 
-Badanie artefaktów okna jest zamknięte na obecnym etapie. Kolejne prace powinny wrócić do głównego celu eksperymentu: manualnej walidacji UX oraz pomiarów Reference / Stress Raw, a następnie ewentualnego rozszerzenia GUI regression o najważniejsze rzeczywiste gesty:
+Prace wracają do głównego celu eksperymentu: manualnej walidacji UX oraz pomiarów Reference / Stress Raw, a następnie ewentualnego rozszerzenia GUI regression o najważniejsze rzeczywiste gesty:
 
 ```text
 plain drag / wheel X
