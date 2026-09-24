@@ -15,6 +15,14 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <backends/imgui_impl_dx11.h>
+#include <d3d11.h>
+#include <dxgi.h>
+#endif
+
 namespace {
 constexpr const char* kGlslVersion = "#version 330";
 constexpr int kInitialWidth = 1280;
@@ -30,6 +38,7 @@ const char* glString(GLenum name) {
 }
 
 void logOpenGlInfo() {
+    std::fprintf(stderr, "Rendering backend: OpenGL\n");
     std::fprintf(stderr, "OpenGL vendor: %s\n", glString(GL_VENDOR));
     std::fprintf(stderr, "OpenGL renderer: %s\n", glString(GL_RENDERER));
     std::fprintf(stderr, "OpenGL version: %s\n", glString(GL_VERSION));
@@ -69,9 +78,18 @@ bool App::initialize() {
         return false;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    if (options_.backend == RenderBackend::DirectX11) {
+#ifndef _WIN32
+        std::fprintf(stderr, "DirectX 11 backend is only available on Windows.\n");
+        return false;
+#else
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#endif
+    } else {
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    }
 
     window_ = glfwCreateWindow(kInitialWidth,
                                kInitialHeight,
@@ -82,9 +100,13 @@ bool App::initialize() {
         return false;
     }
 
-    glfwMakeContextCurrent(window_);
-    glfwSwapInterval(options_.runTests ? 0 : 1);
-    logOpenGlInfo();
+    if (options_.backend == RenderBackend::OpenGL) {
+        glfwMakeContextCurrent(window_);
+        glfwSwapInterval(options_.runTests ? 0 : 1);
+        logOpenGlInfo();
+    } else if (!initializeDirectX11()) {
+        return false;
+    }
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -93,14 +115,11 @@ bool App::initialize() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
 
-    // The texture-based AA path made the transient Windows/OpenGL artifacts
-    // substantially more visible. Keep line AA enabled, but use geometric AA.
+    // Keep the same geometric line-AA path for both renderers so backend
+    // comparison does not change chart geometry or ImGui draw data.
     ImGui::GetStyle().AntiAliasedLinesUseTex = false;
 
-    if (!ImGui_ImplGlfw_InitForOpenGL(window_, true)) {
-        return false;
-    }
-    if (!ImGui_ImplOpenGL3_Init(kGlslVersion)) {
+    if (!initializeRenderer()) {
         return false;
     }
 
@@ -136,16 +155,193 @@ bool App::initialize() {
     return true;
 }
 
+bool App::initializeRenderer() {
+    if (options_.backend == RenderBackend::DirectX11) {
+#ifdef _WIN32
+        if (!ImGui_ImplGlfw_InitForOther(window_, true)) {
+            return false;
+        }
+        if (!ImGui_ImplDX11_Init(d3dDevice_, d3dContext_)) {
+            ImGui_ImplGlfw_Shutdown();
+            return false;
+        }
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    if (!ImGui_ImplGlfw_InitForOpenGL(window_, true)) {
+        return false;
+    }
+    if (!ImGui_ImplOpenGL3_Init(kGlslVersion)) {
+        ImGui_ImplGlfw_Shutdown();
+        return false;
+    }
+    return true;
+}
+
+void App::shutdownRenderer() {
+    if (options_.backend == RenderBackend::DirectX11) {
+#ifdef _WIN32
+        ImGui_ImplDX11_Shutdown();
+#endif
+    } else {
+        ImGui_ImplOpenGL3_Shutdown();
+    }
+    ImGui_ImplGlfw_Shutdown();
+}
+
+bool App::initializeDirectX11() {
+#ifndef _WIN32
+    return false;
+#else
+    HWND hwnd = glfwGetWin32Window(window_);
+    if (hwnd == nullptr) {
+        return false;
+    }
+
+    DXGI_SWAP_CHAIN_DESC swapDesc{};
+    swapDesc.BufferCount = 2;
+    swapDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapDesc.OutputWindow = hwnd;
+    swapDesc.SampleDesc.Count = 1;
+    swapDesc.Windowed = TRUE;
+    swapDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+    swapDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+    const D3D_FEATURE_LEVEL featureLevels[] = {
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_0,
+    };
+    D3D_FEATURE_LEVEL selectedFeatureLevel = D3D_FEATURE_LEVEL_10_0;
+
+    HRESULT result = D3D11CreateDeviceAndSwapChain(nullptr,
+                                                    D3D_DRIVER_TYPE_HARDWARE,
+                                                    nullptr,
+                                                    0,
+                                                    featureLevels,
+                                                    2,
+                                                    D3D11_SDK_VERSION,
+                                                    &swapDesc,
+                                                    &dxgiSwapChain_,
+                                                    &d3dDevice_,
+                                                    &selectedFeatureLevel,
+                                                    &d3dContext_);
+    if (FAILED(result)) {
+        std::fprintf(stderr, "D3D11CreateDeviceAndSwapChain failed: 0x%08lX\n",
+                     static_cast<unsigned long>(result));
+        return false;
+    }
+
+    if (!createDirectX11RenderTarget()) {
+        shutdownDirectX11();
+        return false;
+    }
+
+    glfwGetFramebufferSize(window_, &d3dWidth_, &d3dHeight_);
+    std::fprintf(stderr,
+                 "Rendering backend: DirectX 11 (feature level 0x%04X)\n",
+                 static_cast<unsigned int>(selectedFeatureLevel));
+    return true;
+#endif
+}
+
+void App::shutdownDirectX11() {
+#ifdef _WIN32
+    if (dxgiSwapChain_ != nullptr) {
+        dxgiSwapChain_->SetFullscreenState(FALSE, nullptr);
+    }
+    destroyDirectX11RenderTarget();
+    if (dxgiSwapChain_ != nullptr) {
+        dxgiSwapChain_->Release();
+        dxgiSwapChain_ = nullptr;
+    }
+    if (d3dContext_ != nullptr) {
+        d3dContext_->Release();
+        d3dContext_ = nullptr;
+    }
+    if (d3dDevice_ != nullptr) {
+        d3dDevice_->Release();
+        d3dDevice_ = nullptr;
+    }
+#endif
+}
+
+bool App::createDirectX11RenderTarget() {
+#ifndef _WIN32
+    return false;
+#else
+    if (dxgiSwapChain_ == nullptr || d3dDevice_ == nullptr) {
+        return false;
+    }
+
+    ID3D11Texture2D* backBuffer = nullptr;
+    const HRESULT getBufferResult = dxgiSwapChain_->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
+    if (FAILED(getBufferResult) || backBuffer == nullptr) {
+        return false;
+    }
+
+    const HRESULT viewResult =
+        d3dDevice_->CreateRenderTargetView(backBuffer, nullptr, &d3dRenderTarget_);
+    backBuffer->Release();
+    return SUCCEEDED(viewResult);
+#endif
+}
+
+void App::destroyDirectX11RenderTarget() {
+#ifdef _WIN32
+    if (d3dRenderTarget_ != nullptr) {
+        d3dRenderTarget_->Release();
+        d3dRenderTarget_ = nullptr;
+    }
+#endif
+}
+
+void App::resizeDirectX11IfNeeded() {
+#ifdef _WIN32
+    if (options_.backend != RenderBackend::DirectX11 || dxgiSwapChain_ == nullptr) {
+        return;
+    }
+
+    int width = 0;
+    int height = 0;
+    glfwGetFramebufferSize(window_, &width, &height);
+    if (width <= 0 || height <= 0 || (width == d3dWidth_ && height == d3dHeight_)) {
+        return;
+    }
+
+    destroyDirectX11RenderTarget();
+    const HRESULT resizeResult =
+        dxgiSwapChain_->ResizeBuffers(0, static_cast<UINT>(width), static_cast<UINT>(height),
+                                      DXGI_FORMAT_UNKNOWN, 0);
+    if (FAILED(resizeResult)) {
+        std::fprintf(stderr, "DXGI ResizeBuffers failed: 0x%08lX\n",
+                     static_cast<unsigned long>(resizeResult));
+        return;
+    }
+
+    if (createDirectX11RenderTarget()) {
+        d3dWidth_ = width;
+        d3dHeight_ = height;
+    }
+#endif
+}
+
 void App::shutdown() {
     testEngine_.stop();
 
     if (ImGui::GetCurrentContext() != nullptr) {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
+        shutdownRenderer();
         ImGui::DestroyContext();
     }
 
     testEngine_.destroy();
+
+    if (options_.backend == RenderBackend::DirectX11) {
+        shutdownDirectX11();
+    }
 
     if (window_ != nullptr) {
         glfwDestroyWindow(window_);
@@ -228,6 +424,15 @@ void App::toggleFullscreen() {
                              mode->width,
                              mode->height,
                              mode->refreshRate);
+#ifdef _WIN32
+        if (options_.backend == RenderBackend::DirectX11 && dxgiSwapChain_ != nullptr) {
+            const HRESULT result = dxgiSwapChain_->SetFullscreenState(TRUE, nullptr);
+            if (FAILED(result)) {
+                std::fprintf(stderr, "DXGI exclusive fullscreen failed: 0x%08lX\n",
+                             static_cast<unsigned long>(result));
+            }
+        }
+#endif
         fullscreen_ = true;
         std::fprintf(stderr,
                      "Exclusive fullscreen: ON (%dx%d @ %d Hz)\n",
@@ -237,6 +442,11 @@ void App::toggleFullscreen() {
         return;
     }
 
+#ifdef _WIN32
+    if (options_.backend == RenderBackend::DirectX11 && dxgiSwapChain_ != nullptr) {
+        dxgiSwapChain_->SetFullscreenState(FALSE, nullptr);
+    }
+#endif
     restoreWindowedGeometry();
     fullscreen_ = false;
     std::fprintf(stderr,
@@ -427,8 +637,15 @@ void App::toggleUndecoratedWorkAreaWindow() {
 void App::frame() {
     glfwPollEvents();
     handleWindowModeToggles();
+    resizeDirectX11IfNeeded();
 
-    ImGui_ImplOpenGL3_NewFrame();
+    if (options_.backend == RenderBackend::DirectX11) {
+#ifdef _WIN32
+        ImGui_ImplDX11_NewFrame();
+#endif
+    } else {
+        ImGui_ImplOpenGL3_NewFrame();
+    }
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
@@ -465,6 +682,24 @@ void App::frame() {
     testEngine_.drawUi();
 
     ImGui::Render();
+
+    if (options_.backend == RenderBackend::DirectX11) {
+#ifdef _WIN32
+        int displayWidth = 0;
+        int displayHeight = 0;
+        glfwGetFramebufferSize(window_, &displayWidth, &displayHeight);
+        if (displayWidth > 0 && displayHeight > 0 && d3dRenderTarget_ != nullptr) {
+            constexpr float clearColor[4] = {0.08F, 0.08F, 0.09F, 1.0F};
+            d3dContext_->OMSetRenderTargets(1, &d3dRenderTarget_, nullptr);
+            d3dContext_->ClearRenderTargetView(d3dRenderTarget_, clearColor);
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+            testEngine_.preSwap();
+            dxgiSwapChain_->Present(options_.runTests ? 0 : 1, 0);
+            testEngine_.postSwap();
+        }
+#endif
+        return;
+    }
 
     int displayWidth = 0;
     int displayHeight = 0;
