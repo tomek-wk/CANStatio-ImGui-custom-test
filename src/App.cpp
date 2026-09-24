@@ -23,6 +23,18 @@ constexpr int kInitialHeight = 800;
 void glfwErrorCallback(int error, const char* description) {
     std::fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
+
+const char* glString(GLenum name) {
+    const GLubyte* value = glGetString(name);
+    return value != nullptr ? reinterpret_cast<const char*>(value) : "<unavailable>";
+}
+
+void logOpenGlInfo() {
+    std::fprintf(stderr, "OpenGL vendor: %s\n", glString(GL_VENDOR));
+    std::fprintf(stderr, "OpenGL renderer: %s\n", glString(GL_RENDERER));
+    std::fprintf(stderr, "OpenGL version: %s\n", glString(GL_VERSION));
+    std::fprintf(stderr, "GLSL version: %s\n", glString(GL_SHADING_LANGUAGE_VERSION));
+}
 } // namespace
 
 App::App(AppOptions options)
@@ -73,6 +85,7 @@ bool App::initialize() {
 
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(options_.runTests ? 0 : 1);
+    logOpenGlInfo();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -81,13 +94,9 @@ bool App::initialize() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
 
-    // The target Windows/OpenGL setup showed transient colored fragments around
-    // thin chart lines and, after disabling texture-based line AA, at the plot
-    // clip boundary. Disable line AA entirely so line geometry has no fringe
-    // triangles that can intersect the scissor edge.
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.AntiAliasedLinesUseTex = false;
-    style.AntiAliasedLines = false;
+    // The texture-based AA path made the transient Windows/OpenGL artifacts
+    // substantially more visible. Keep line AA enabled, but use geometric AA.
+    ImGui::GetStyle().AntiAliasedLinesUseTex = false;
 
     if (!ImGui_ImplGlfw_InitForOpenGL(window_, true)) {
         return false;
