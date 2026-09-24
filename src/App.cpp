@@ -116,8 +116,8 @@ bool App::initialize() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
 
-    // Keep the same geometric line-AA path for both renderers so backend
-    // comparison does not change chart geometry or ImGui draw data.
+    // The texture-based line-AA path made the transient OpenGL artifacts more visible.
+    // Keep geometric line AA for both renderers so the chart geometry stays identical.
     ImGui::GetStyle().AntiAliasedLinesUseTex = false;
 
     if (!initializeRenderer()) {
@@ -364,8 +364,11 @@ void App::resizeDirectX11IfNeeded() {
 
     destroyDirectX11RenderTarget();
     const HRESULT resizeResult =
-        dxgiSwapChain_->ResizeBuffers(0, static_cast<UINT>(width), static_cast<UINT>(height),
-                                      DXGI_FORMAT_UNKNOWN, 0);
+        dxgiSwapChain_->ResizeBuffers(0,
+                                      static_cast<UINT>(width),
+                                      static_cast<UINT>(height),
+                                      DXGI_FORMAT_UNKNOWN,
+                                      0);
     if (FAILED(resizeResult)) {
         std::fprintf(stderr, "DXGI ResizeBuffers failed: 0x%08lX\n",
                      static_cast<unsigned long>(resizeResult));
@@ -426,40 +429,11 @@ void App::handleWindowModeToggles() {
         toggleFullscreen();
     }
     fullscreenToggleKeyDown_ = fullscreenKeyDown;
-
-    const bool borderlessKeyDown = glfwGetKey(window_, GLFW_KEY_F10) == GLFW_PRESS;
-    if (borderlessKeyDown && !borderlessToggleKeyDown_) {
-        toggleBorderless();
-    }
-    borderlessToggleKeyDown_ = borderlessKeyDown;
-
-    const bool workAreaKeyDown = glfwGetKey(window_, GLFW_KEY_F9) == GLFW_PRESS;
-    if (workAreaKeyDown && !workAreaToggleKeyDown_) {
-        toggleWorkAreaWindow();
-    }
-    workAreaToggleKeyDown_ = workAreaKeyDown;
-
-    const bool undecoratedWorkAreaKeyDown = glfwGetKey(window_, GLFW_KEY_F8) == GLFW_PRESS;
-    if (undecoratedWorkAreaKeyDown && !undecoratedWorkAreaToggleKeyDown_) {
-        toggleUndecoratedWorkAreaWindow();
-    }
-    undecoratedWorkAreaToggleKeyDown_ = undecoratedWorkAreaKeyDown;
 }
 
 void App::toggleFullscreen() {
     if (!fullscreen_) {
-        if (borderless_) {
-            restoreWindowedGeometry();
-            borderless_ = false;
-        } else if (workAreaWindow_) {
-            restoreWindowedGeometry();
-            workAreaWindow_ = false;
-        } else if (undecoratedWorkAreaWindow_) {
-            restoreWindowedGeometry();
-            undecoratedWorkAreaWindow_ = false;
-        } else {
-            saveWindowedGeometry();
-        }
+        saveWindowedGeometry();
 
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode* mode = monitor != nullptr ? glfwGetVideoMode(monitor) : nullptr;
@@ -501,183 +475,6 @@ void App::toggleFullscreen() {
     fullscreen_ = false;
     std::fprintf(stderr,
                  "Exclusive fullscreen: OFF (%dx%d at %d,%d)\n",
-                 windowedWidth_,
-                 windowedHeight_,
-                 windowedX_,
-                 windowedY_);
-}
-
-void App::toggleBorderless() {
-    if (fullscreen_) {
-        std::fprintf(stderr, "Borderless toggle ignored while exclusive fullscreen is active.\n");
-        return;
-    }
-
-    if (!borderless_) {
-        if (workAreaWindow_) {
-            restoreWindowedGeometry();
-            workAreaWindow_ = false;
-        } else if (undecoratedWorkAreaWindow_) {
-            restoreWindowedGeometry();
-            undecoratedWorkAreaWindow_ = false;
-        } else {
-            saveWindowedGeometry();
-        }
-
-        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-        const GLFWvidmode* mode = monitor != nullptr ? glfwGetVideoMode(monitor) : nullptr;
-        if (monitor == nullptr || mode == nullptr) {
-            return;
-        }
-
-        int monitorX = 0;
-        int monitorY = 0;
-        glfwGetMonitorPos(monitor, &monitorX, &monitorY);
-        glfwSetWindowAttrib(window_, GLFW_DECORATED, GLFW_FALSE);
-        glfwSetWindowPos(window_, monitorX, monitorY);
-        glfwSetWindowSize(window_, mode->width, mode->height);
-        borderless_ = true;
-        std::fprintf(stderr,
-                     "Borderless fullscreen: ON (%dx%d at %d,%d)\n",
-                     mode->width,
-                     mode->height,
-                     monitorX,
-                     monitorY);
-        return;
-    }
-
-    restoreWindowedGeometry();
-    borderless_ = false;
-    std::fprintf(stderr,
-                 "Borderless fullscreen: OFF (%dx%d at %d,%d)\n",
-                 windowedWidth_,
-                 windowedHeight_,
-                 windowedX_,
-                 windowedY_);
-}
-
-void App::toggleWorkAreaWindow() {
-    if (fullscreen_) {
-        std::fprintf(stderr, "Work-area toggle ignored while exclusive fullscreen is active.\n");
-        return;
-    }
-
-    if (!workAreaWindow_) {
-        if (borderless_) {
-            restoreWindowedGeometry();
-            borderless_ = false;
-        } else if (undecoratedWorkAreaWindow_) {
-            restoreWindowedGeometry();
-            undecoratedWorkAreaWindow_ = false;
-        } else {
-            saveWindowedGeometry();
-        }
-
-        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-        if (monitor == nullptr) {
-            return;
-        }
-
-        int workX = 0;
-        int workY = 0;
-        int workWidth = 0;
-        int workHeight = 0;
-        glfwGetMonitorWorkarea(monitor, &workX, &workY, &workWidth, &workHeight);
-
-        glfwSetWindowAttrib(window_, GLFW_DECORATED, GLFW_TRUE);
-        glfwRestoreWindow(window_);
-
-        int frameLeft = 0;
-        int frameTop = 0;
-        int frameRight = 0;
-        int frameBottom = 0;
-        glfwGetWindowFrameSize(window_, &frameLeft, &frameTop, &frameRight, &frameBottom);
-
-        const int contentX = workX + frameLeft;
-        const int contentY = workY + frameTop;
-        const int contentWidth = std::max(640, workWidth - frameLeft - frameRight);
-        const int contentHeight = std::max(480, workHeight - frameTop - frameBottom);
-        glfwSetWindowMonitor(window_,
-                             nullptr,
-                             contentX,
-                             contentY,
-                             contentWidth,
-                             contentHeight,
-                             GLFW_DONT_CARE);
-        workAreaWindow_ = true;
-        std::fprintf(stderr,
-                     "Decorated work-area window: ON (outer %dx%d at %d,%d; maximized=%d)\n",
-                     workWidth,
-                     workHeight,
-                     workX,
-                     workY,
-                     glfwGetWindowAttrib(window_, GLFW_MAXIMIZED));
-        return;
-    }
-
-    restoreWindowedGeometry();
-    workAreaWindow_ = false;
-    std::fprintf(stderr,
-                 "Decorated work-area window: OFF (%dx%d at %d,%d)\n",
-                 windowedWidth_,
-                 windowedHeight_,
-                 windowedX_,
-                 windowedY_);
-}
-
-void App::toggleUndecoratedWorkAreaWindow() {
-    if (fullscreen_) {
-        std::fprintf(stderr,
-                     "Undecorated work-area toggle ignored while exclusive fullscreen is active.\n");
-        return;
-    }
-
-    if (!undecoratedWorkAreaWindow_) {
-        if (borderless_) {
-            restoreWindowedGeometry();
-            borderless_ = false;
-        } else if (workAreaWindow_) {
-            restoreWindowedGeometry();
-            workAreaWindow_ = false;
-        } else {
-            saveWindowedGeometry();
-        }
-
-        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-        if (monitor == nullptr) {
-            return;
-        }
-
-        int workX = 0;
-        int workY = 0;
-        int workWidth = 0;
-        int workHeight = 0;
-        glfwGetMonitorWorkarea(monitor, &workX, &workY, &workWidth, &workHeight);
-
-        glfwSetWindowAttrib(window_, GLFW_DECORATED, GLFW_FALSE);
-        glfwRestoreWindow(window_);
-        glfwSetWindowMonitor(window_,
-                             nullptr,
-                             workX,
-                             workY,
-                             std::max(workWidth, 640),
-                             std::max(workHeight, 480),
-                             GLFW_DONT_CARE);
-        undecoratedWorkAreaWindow_ = true;
-        std::fprintf(stderr,
-                     "Undecorated work-area window: ON (%dx%d at %d,%d; maximized=%d)\n",
-                     workWidth,
-                     workHeight,
-                     workX,
-                     workY,
-                     glfwGetWindowAttrib(window_, GLFW_MAXIMIZED));
-        return;
-    }
-
-    restoreWindowedGeometry();
-    undecoratedWorkAreaWindow_ = false;
-    std::fprintf(stderr,
-                 "Undecorated work-area window: OFF (%dx%d at %d,%d)\n",
                  windowedWidth_,
                  windowedHeight_,
                  windowedX_,
