@@ -192,6 +192,12 @@ void App::handleWindowModeToggles() {
         toggleWorkAreaWindow();
     }
     workAreaToggleKeyDown_ = workAreaKeyDown;
+
+    const bool undecoratedWorkAreaKeyDown = glfwGetKey(window_, GLFW_KEY_F8) == GLFW_PRESS;
+    if (undecoratedWorkAreaKeyDown && !undecoratedWorkAreaToggleKeyDown_) {
+        toggleUndecoratedWorkAreaWindow();
+    }
+    undecoratedWorkAreaToggleKeyDown_ = undecoratedWorkAreaKeyDown;
 }
 
 void App::toggleFullscreen() {
@@ -202,6 +208,9 @@ void App::toggleFullscreen() {
         } else if (workAreaWindow_) {
             restoreWindowedGeometry();
             workAreaWindow_ = false;
+        } else if (undecoratedWorkAreaWindow_) {
+            restoreWindowedGeometry();
+            undecoratedWorkAreaWindow_ = false;
         } else {
             saveWindowedGeometry();
         }
@@ -248,6 +257,9 @@ void App::toggleBorderless() {
         if (workAreaWindow_) {
             restoreWindowedGeometry();
             workAreaWindow_ = false;
+        } else if (undecoratedWorkAreaWindow_) {
+            restoreWindowedGeometry();
+            undecoratedWorkAreaWindow_ = false;
         } else {
             saveWindowedGeometry();
         }
@@ -294,6 +306,9 @@ void App::toggleWorkAreaWindow() {
         if (borderless_) {
             restoreWindowedGeometry();
             borderless_ = false;
+        } else if (undecoratedWorkAreaWindow_) {
+            restoreWindowedGeometry();
+            undecoratedWorkAreaWindow_ = false;
         } else {
             saveWindowedGeometry();
         }
@@ -344,6 +359,65 @@ void App::toggleWorkAreaWindow() {
     workAreaWindow_ = false;
     std::fprintf(stderr,
                  "Decorated work-area window: OFF (%dx%d at %d,%d)\n",
+                 windowedWidth_,
+                 windowedHeight_,
+                 windowedX_,
+                 windowedY_);
+}
+
+void App::toggleUndecoratedWorkAreaWindow() {
+    if (fullscreen_) {
+        std::fprintf(stderr,
+                     "Undecorated work-area toggle ignored while exclusive fullscreen is active.\n");
+        return;
+    }
+
+    if (!undecoratedWorkAreaWindow_) {
+        if (borderless_) {
+            restoreWindowedGeometry();
+            borderless_ = false;
+        } else if (workAreaWindow_) {
+            restoreWindowedGeometry();
+            workAreaWindow_ = false;
+        } else {
+            saveWindowedGeometry();
+        }
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        if (monitor == nullptr) {
+            return;
+        }
+
+        int workX = 0;
+        int workY = 0;
+        int workWidth = 0;
+        int workHeight = 0;
+        glfwGetMonitorWorkarea(monitor, &workX, &workY, &workWidth, &workHeight);
+
+        glfwSetWindowAttrib(window_, GLFW_DECORATED, GLFW_FALSE);
+        glfwRestoreWindow(window_);
+        glfwSetWindowMonitor(window_,
+                             nullptr,
+                             workX,
+                             workY,
+                             std::max(workWidth, 640),
+                             std::max(workHeight, 480),
+                             GLFW_DONT_CARE);
+        undecoratedWorkAreaWindow_ = true;
+        std::fprintf(stderr,
+                     "Undecorated work-area window: ON (%dx%d at %d,%d; maximized=%d)\n",
+                     workWidth,
+                     workHeight,
+                     workX,
+                     workY,
+                     glfwGetWindowAttrib(window_, GLFW_MAXIMIZED));
+        return;
+    }
+
+    restoreWindowedGeometry();
+    undecoratedWorkAreaWindow_ = false;
+    std::fprintf(stderr,
+                 "Undecorated work-area window: OFF (%dx%d at %d,%d)\n",
                  windowedWidth_,
                  windowedHeight_,
                  windowedX_,
