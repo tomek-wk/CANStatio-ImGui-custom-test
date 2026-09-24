@@ -8,5 +8,5 @@ if not exist "build\canstatio_imgui_custom_test.exe" (
     exit /b 1
 )
 
-build\canstatio_imgui_custom_test.exe
+build\canstatio_imgui_custom_test.exe %*
 exit /b %errorlevel%
