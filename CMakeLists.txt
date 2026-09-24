@@ -55,6 +55,12 @@ add_library(imgui STATIC
   "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
 )
 
+if(WIN32)
+  target_sources(imgui PRIVATE
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
+  )
+endif()
+
 target_include_directories(imgui PUBLIC
   "${imgui_SOURCE_DIR}"
   "${imgui_SOURCE_DIR}/backends"
@@ -62,6 +68,9 @@ target_include_directories(imgui PUBLIC
 
 target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_TEST_ENGINE)
 target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
+if(WIN32)
+  target_link_libraries(imgui PUBLIC d3d11 dxgi)
+endif()
 
 add_library(imgui_test_engine STATIC
   "${imgui_test_engine_source_SOURCE_DIR}/imgui_test_engine/imgui_capture_tool.cpp"
