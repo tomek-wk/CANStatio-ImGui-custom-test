@@ -155,18 +155,47 @@ void App::shutdown() {
     glfwTerminate();
 }
 
-void App::handleFullscreenToggle() {
-    const bool keyDown = glfwGetKey(window_, GLFW_KEY_F11) == GLFW_PRESS;
-    if (keyDown && !fullscreenToggleKeyDown_) {
+void App::saveWindowedGeometry() {
+    if (glfwGetWindowAttrib(window_, GLFW_MAXIMIZED) == GLFW_TRUE) {
+        glfwRestoreWindow(window_);
+    }
+    glfwGetWindowPos(window_, &windowedX_, &windowedY_);
+    glfwGetWindowSize(window_, &windowedWidth_, &windowedHeight_);
+}
+
+void App::restoreWindowedGeometry() {
+    glfwSetWindowAttrib(window_, GLFW_DECORATED, GLFW_TRUE);
+    glfwSetWindowMonitor(window_,
+                         nullptr,
+                         windowedX_,
+                         windowedY_,
+                         std::max(windowedWidth_, 640),
+                         std::max(windowedHeight_, 480),
+                         GLFW_DONT_CARE);
+}
+
+void App::handleWindowModeToggles() {
+    const bool fullscreenKeyDown = glfwGetKey(window_, GLFW_KEY_F11) == GLFW_PRESS;
+    if (fullscreenKeyDown && !fullscreenToggleKeyDown_) {
         toggleFullscreen();
     }
-    fullscreenToggleKeyDown_ = keyDown;
+    fullscreenToggleKeyDown_ = fullscreenKeyDown;
+
+    const bool borderlessKeyDown = glfwGetKey(window_, GLFW_KEY_F10) == GLFW_PRESS;
+    if (borderlessKeyDown && !borderlessToggleKeyDown_) {
+        toggleBorderless();
+    }
+    borderlessToggleKeyDown_ = borderlessKeyDown;
 }
 
 void App::toggleFullscreen() {
     if (!fullscreen_) {
-        glfwGetWindowPos(window_, &windowedX_, &windowedY_);
-        glfwGetWindowSize(window_, &windowedWidth_, &windowedHeight_);
+        if (borderless_) {
+            restoreWindowedGeometry();
+            borderless_ = false;
+        } else {
+            saveWindowedGeometry();
+        }
 
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode* mode = monitor != nullptr ? glfwGetVideoMode(monitor) : nullptr;
@@ -183,23 +212,58 @@ void App::toggleFullscreen() {
                              mode->refreshRate);
         fullscreen_ = true;
         std::fprintf(stderr,
-                     "Fullscreen: ON (%dx%d @ %d Hz)\n",
+                     "Exclusive fullscreen: ON (%dx%d @ %d Hz)\n",
                      mode->width,
                      mode->height,
                      mode->refreshRate);
         return;
     }
 
-    glfwSetWindowMonitor(window_,
-                         nullptr,
-                         windowedX_,
-                         windowedY_,
-                         std::max(windowedWidth_, 640),
-                         std::max(windowedHeight_, 480),
-                         GLFW_DONT_CARE);
+    restoreWindowedGeometry();
     fullscreen_ = false;
     std::fprintf(stderr,
-                 "Fullscreen: OFF (%dx%d at %d,%d)\n",
+                 "Exclusive fullscreen: OFF (%dx%d at %d,%d)\n",
+                 windowedWidth_,
+                 windowedHeight_,
+                 windowedX_,
+                 windowedY_);
+}
+
+void App::toggleBorderless() {
+    if (fullscreen_) {
+        std::fprintf(stderr, "Borderless toggle ignored while exclusive fullscreen is active.\n");
+        return;
+    }
+
+    if (!borderless_) {
+        saveWindowedGeometry();
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = monitor != nullptr ? glfwGetVideoMode(monitor) : nullptr;
+        if (monitor == nullptr || mode == nullptr) {
+            return;
+        }
+
+        int monitorX = 0;
+        int monitorY = 0;
+        glfwGetMonitorPos(monitor, &monitorX, &monitorY);
+        glfwSetWindowAttrib(window_, GLFW_DECORATED, GLFW_FALSE);
+        glfwSetWindowPos(window_, monitorX, monitorY);
+        glfwSetWindowSize(window_, mode->width, mode->height);
+        borderless_ = true;
+        std::fprintf(stderr,
+                     "Borderless fullscreen: ON (%dx%d at %d,%d)\n",
+                     mode->width,
+                     mode->height,
+                     monitorX,
+                     monitorY);
+        return;
+    }
+
+    restoreWindowedGeometry();
+    borderless_ = false;
+    std::fprintf(stderr,
+                 "Borderless fullscreen: OFF (%dx%d at %d,%d)\n",
                  windowedWidth_,
                  windowedHeight_,
                  windowedX_,
@@ -208,7 +272,7 @@ void App::toggleFullscreen() {
 
 void App::frame() {
     glfwPollEvents();
-    handleFullscreenToggle();
+    handleWindowModeToggles();
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
