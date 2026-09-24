@@ -48,9 +48,6 @@ private:
     void resizeDirectX11IfNeeded();
     void handleWindowModeToggles();
     void toggleFullscreen();
-    void toggleBorderless();
-    void toggleWorkAreaWindow();
-    void toggleUndecoratedWorkAreaWindow();
     void saveWindowedGeometry();
     void restoreWindowedGeometry();
 
@@ -63,13 +60,7 @@ private:
     int d3dWidth_ = 0;
     int d3dHeight_ = 0;
     bool fullscreen_ = false;
-    bool borderless_ = false;
-    bool workAreaWindow_ = false;
-    bool undecoratedWorkAreaWindow_ = false;
     bool fullscreenToggleKeyDown_ = false;
-    bool borderlessToggleKeyDown_ = false;
-    bool workAreaToggleKeyDown_ = false;
-    bool undecoratedWorkAreaToggleKeyDown_ = false;
     int windowedX_ = 100;
     int windowedY_ = 100;
     int windowedWidth_ = 1280;
