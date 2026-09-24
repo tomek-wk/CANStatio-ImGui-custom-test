@@ -29,13 +29,18 @@ private:
     bool initialize();
     void shutdown();
     void frame();
-    void handleFullscreenToggle();
+    void handleWindowModeToggles();
     void toggleFullscreen();
+    void toggleBorderless();
+    void saveWindowedGeometry();
+    void restoreWindowedGeometry();
 
     AppOptions options_;
     GLFWwindow* window_ = nullptr;
     bool fullscreen_ = false;
+    bool borderless_ = false;
     bool fullscreenToggleKeyDown_ = false;
+    bool borderlessToggleKeyDown_ = false;
     int windowedX_ = 100;
     int windowedY_ = 100;
     int windowedWidth_ = 1280;
