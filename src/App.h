@@ -29,9 +29,17 @@ private:
     bool initialize();
     void shutdown();
     void frame();
+    void handleFullscreenToggle();
+    void toggleFullscreen();
 
     AppOptions options_;
     GLFWwindow* window_ = nullptr;
+    bool fullscreen_ = false;
+    bool fullscreenToggleKeyDown_ = false;
+    int windowedX_ = 100;
+    int windowedY_ = 100;
+    int windowedWidth_ = 1280;
+    int windowedHeight_ = 800;
     Dataset dataset_;
     DataPreset dataPreset_ = DataPreset::Small;
     std::size_t activeSeriesIndex_ = std::numeric_limits<std::size_t>::max();
