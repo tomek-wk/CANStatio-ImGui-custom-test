@@ -86,6 +86,13 @@ Wykres ma wizualnie działać jak główna powierzchnia aplikacji, a nie mały w
 - marginesy są małe;
 - brak dockingu na tym etapie.
 
+Aplikacja obsługuje docelowy tryb **exclusive fullscreen**:
+
+- `F11` przełącza zwykłe okno i exclusive fullscreen;
+- fullscreen używa bieżącego trybu wideo głównego monitora;
+- wejście w fullscreen nie resetuje datasetu ani stanu wykresu;
+- wyjście z fullscreen przywraca poprzednią pozycję i rozmiar okna.
+
 Pływające okna pomocnicze:
 
 - `Test Controls`;
