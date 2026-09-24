@@ -155,8 +155,60 @@ void App::shutdown() {
     glfwTerminate();
 }
 
+void App::handleFullscreenToggle() {
+    const bool keyDown = glfwGetKey(window_, GLFW_KEY_F11) == GLFW_PRESS;
+    if (keyDown && !fullscreenToggleKeyDown_) {
+        toggleFullscreen();
+    }
+    fullscreenToggleKeyDown_ = keyDown;
+}
+
+void App::toggleFullscreen() {
+    if (!fullscreen_) {
+        glfwGetWindowPos(window_, &windowedX_, &windowedY_);
+        glfwGetWindowSize(window_, &windowedWidth_, &windowedHeight_);
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = monitor != nullptr ? glfwGetVideoMode(monitor) : nullptr;
+        if (monitor == nullptr || mode == nullptr) {
+            return;
+        }
+
+        glfwSetWindowMonitor(window_,
+                             monitor,
+                             0,
+                             0,
+                             mode->width,
+                             mode->height,
+                             mode->refreshRate);
+        fullscreen_ = true;
+        std::fprintf(stderr,
+                     "Fullscreen: ON (%dx%d @ %d Hz)\n",
+                     mode->width,
+                     mode->height,
+                     mode->refreshRate);
+        return;
+    }
+
+    glfwSetWindowMonitor(window_,
+                         nullptr,
+                         windowedX_,
+                         windowedY_,
+                         std::max(windowedWidth_, 640),
+                         std::max(windowedHeight_, 480),
+                         GLFW_DONT_CARE);
+    fullscreen_ = false;
+    std::fprintf(stderr,
+                 "Fullscreen: OFF (%dx%d at %d,%d)\n",
+                 windowedWidth_,
+                 windowedHeight_,
+                 windowedX_,
+                 windowedY_);
+}
+
 void App::frame() {
     glfwPollEvents();
+    handleFullscreenToggle();
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
